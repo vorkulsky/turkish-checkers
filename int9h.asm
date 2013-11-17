@@ -1,4 +1,4 @@
-.model tiny
+.model tiny, C
 .386
 .code
 	public Key_Ini
