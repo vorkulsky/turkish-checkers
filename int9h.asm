@@ -43,7 +43,7 @@ Key_Rst proc near
 Key_Rst endp
 
 Key_Is_Esc proc near
-	; CF=1 YES
+; CF=1 YES
 	cmp buffer[1], 1h
 	jne no_key
 	push ax
