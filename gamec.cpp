@@ -21,8 +21,18 @@ void paint_empty_board();
 void debug_ini();
 void debug_print(char* str, int size, byte color);
 void mainloop();
+void send_via_com();
+byte* prepare_place_for_send(int size);
+void copy_str_for_send(char* str, int size, byte* SB_pos);
 
 byte Page;
+const int SB_size = 1024;
+byte Send_Buffer[SB_size];
+byte* SB_head = Send_Buffer; // Указывает на начало еще не отправленной части.
+byte* SB_mark = Send_Buffer; // Указывает на элемент за концом готовой для отправки части.
+byte* SB_tail = Send_Buffer; // Указывает на элемент на элемент, с которого можно начинать писать.
+								// Перед началом записи сдвигается на столько символов, сколько нужно записать за раз.
+const byte* SB_end = Send_Buffer + SB_size; // Элемент за концом места под буфер
 
 void main() {
 	Key_Ini();
@@ -179,4 +189,68 @@ void debug_print(char* str, int size, byte color) {
 		str += part;
 		size -= part;
 	}
+}
+
+byte* prepare_place_for_send(int size) {
+	// Резервируем место
+	asm cli // Запрет прерываний
+	byte* SB_pos = SB_tail; // Позиция для копирования очередного символа
+	if (SB_tail + size < SB_end) {
+		SB_tail += size;
+	} else {
+		SB_tail = SB_tail + size - SB_size;
+	}
+	asm sti // Разрешение прерываний
+	return SB_pos;
+}
+
+void copy_str_for_send(char* str, int size, byte* SB_pos) {
+	// Копируем строку
+	int copied_num = 0;
+	while (SB_pos < SB_end && copied_num < size) {
+		*SB_pos = *(str + copied_num);
+		copied_num++;
+		SB_pos++;
+	}
+	if (copied_num != size) {
+		SB_pos = Send_Buffer;
+		while (copied_num != size) {
+			*SB_pos = *(str + copied_num);
+			copied_num++;
+			SB_pos++;
+		}
+	}
+	SB_mark = SB_tail;
+}
+
+void send_str(char* str, int size) {
+// Считаем, что буфер никогда не может переполниться
+	byte* SB_pos = prepare_place_for_send(size);
+	copy_str_for_send(str, size, SB_pos);
+	send_via_com();
+}
+
+void send_via_com() {
+	byte b;
+	asm cli // Запрет прерываний
+	while (SB_head != SB_end && SB_head != SB_mark) {
+		b = *SB_head;
+		asm mov al, b
+send_via_com_1:
+		Out_Chr();
+		asm jc send_via_com_1
+		SB_head++;
+	}
+	if (SB_head != SB_mark) {
+		SB_head = Send_Buffer;
+		while (SB_head != SB_mark) {
+			b = *SB_head;
+			asm mov al, b
+send_via_com_2:
+			Out_Chr();
+			asm jc send_via_com_2
+			SB_head++;
+		}
+	}
+	asm sti // Разрешение прерываний
 }
