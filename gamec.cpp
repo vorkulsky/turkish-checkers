@@ -14,13 +14,15 @@
 	extern "C" Mouse_Hide();
 	extern "C" Mouse_Show();
 
-// Грфика
 void graph_ini();
 void graph_rst();
 void rectangle(int x1, int x2, int y1, int y2, byte color);
 void paint_empty_board();
-
+void debug_ini();
+void debug_print(char* str, int size, byte color);
 void mainloop();
+
+byte Page;
 
 void main() {
 	Key_Ini();
@@ -28,6 +30,8 @@ void main() {
 	graph_ini();
 	Mouse_Ini();
 	paint_empty_board();
+	debug_ini();
+	debug_print("Start", 5, 8);
 
 	mainloop();
 
@@ -44,10 +48,6 @@ void mainloop() {
 	}
 end_mainloop:
 }
-
-// Грфика
-
-byte Page;
 
 void graph_ini() {
 	// Переход в 10h графический режим
@@ -76,8 +76,8 @@ void rectangle(int x1, int x2, int y1, int y2, byte color) {
 			asm {
 				mov ah, 0ch
 				mov al, color
-				mov cx, i
-				mov dx, j
+				mov cx, j
+				mov dx, i
 				mov bh, Page
 				int 10h
 			}
@@ -114,4 +114,69 @@ void paint_empty_board() {
 	}
 
 	Mouse_Show();
+}
+
+void debug_ini() {
+	rectangle(386, 389, 0, 349, 8);
+}
+
+void debug_print_line(char* line, int size, byte color) {
+	// Максимальная длина строки 29 символов
+	// Прокрутка на одну строку вверх перед печатью очережной
+	const byte left = 50;
+	const byte right = 79;
+	const byte up = 0;
+	const byte down = 24;
+	const byte writex = 50;
+	const byte writey = 24;
+	asm {
+		push ax
+		push bx
+		push cx
+		push dx
+		push sp
+		push bp
+		push si
+		push di
+		push es
+		mov ah, 6
+		mov al, 1
+		mov bx, 0000h
+		mov ch, up
+		mov cl, left
+		mov dh, down
+		mov dl, right
+		int 10h
+	// Печать линии
+		mov ah, 13h
+		mov al, 0
+		mov bh, Page
+		mov bl, color
+		mov cx, size
+		mov dl, writex
+		mov dh, writey
+		push cs
+		pop es
+		mov bp, line
+		int 10h
+		pop es
+		pop di
+		pop si
+		pop bp
+		pop sp
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+	}
+}
+
+void debug_print(char* str, int size, byte color) {
+	// 29 - максимальное кличество символов, печатаемое на одной строке
+	while (size > 0) {
+		int part = size <= 29 ? size : 29;
+		debug_print_line(str, part, color);
+		str += part;
+		size -= part;
+	}
 }
