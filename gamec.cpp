@@ -1,4 +1,5 @@
 #define byte unsigned char
+#define Dmy 1
 // com.asm
 	extern "C" Out_Chr();
 	extern "C" Get_Chr();
@@ -13,6 +14,9 @@
 	extern "C" Mouse_Rst();
 	extern "C" Mouse_Hide();
 	extern "C" Mouse_Show();
+// timer.asm
+	extern "C" Timer_Ini();
+	extern "C" Timer_Rst();
 
 void graph_ini();
 void graph_rst();
@@ -22,30 +26,32 @@ void debug_ini();
 void debug_print(char* str, int size, byte color);
 void mainloop();
 void send_str(char* str, int size);
+void connect();
+void timer_ini();
+void read_all();
+
+enum connect_status {START, C0PING};
 
 byte Page;
-const int SB_size = 1024;
-byte Send_Buffer[SB_size];
-byte* SB_head = Send_Buffer; // Указывает на начало еще не отправленной части.
-byte* SB_mark = Send_Buffer; // Указывает на элемент за концом готовой для отправки части.
-byte* SB_tail = Send_Buffer; // Указывает на элемент на элемент, с которого можно начинать писать.
-								// Перед началом записи сдвигается на столько символов, сколько нужно записать за раз.
-const byte* SB_end = Send_Buffer + SB_size; // Элемент за концом места под буфер
+byte timer18 = 0;
+byte timer55 = 0;
+connect_status cs = START;
 
 void main() {
 	Key_Ini();
-	Ser_Ini();
 	graph_ini();
 	Mouse_Ini();
 	paint_empty_board();
 	debug_ini();
-	debug_print("Start", 5, 8);
+	Ser_Ini();
+	timer_ini();
 
 	mainloop();
 
+	Timer_Rst();
+	Ser_Rst();
 	Mouse_Rst();
 	graph_rst();
-	Ser_Rst();
 	Key_Rst();
 }
 
@@ -53,6 +59,8 @@ void mainloop() {
 	while(1) {
 		Key_Is_Esc();
 		asm jc end_mainloop
+		//debug_print(&timer55, 2, Dmy);
+		connect();
 	}
 end_mainloop:
 }
@@ -183,5 +191,39 @@ send_via_com:
 		Out_Chr();
 		asm jc send_via_com
 		str++;
+	}
+}
+
+void timer_ini() {
+	byte* timer18_ptr = &timer18;
+	byte* timer55_ptr = &timer55;
+	asm {
+		push ax; push bx
+		mov ax, timer18_ptr
+		mov bx, timer55_ptr
+	}
+	Timer_Ini();
+	asm {
+		push bx; push ax
+	}
+}
+
+void connect() {
+	switch (cs) {
+		case START: {
+			timer18 = 0;
+			cs = C0PING;
+			debug_print("Start", 5, 8);
+			break;
+		}
+		case C0PING: {
+			if (timer18 >= 18) {
+				timer18 = 0;
+				send_str("C0", 2);
+				debug_print("C0", 2, Dmy);
+				break;
+			}
+		}
+		default: {}
 	}
 }
