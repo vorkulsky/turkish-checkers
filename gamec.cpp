@@ -137,15 +137,7 @@ void debug_print_line(char* line, int size, byte color) {
 	const byte writex = 50;
 	const byte writey = 24;
 	asm {
-		push ax
-		push bx
-		push cx
-		push dx
-		push sp
-		push bp
-		push si
-		push di
-		push es
+		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
 	// Прокрутка на одну строку вверх перед печатью очередной
 		mov ah, 6
 		mov al, 1
@@ -167,15 +159,7 @@ void debug_print_line(char* line, int size, byte color) {
 		pop es
 		mov bp, line
 		int 10h
-		pop es
-		pop di
-		pop si
-		pop bp
-		pop sp
-		pop dx
-		pop cx
-		pop bx
-		pop ax
+		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
 	}
 }
 
