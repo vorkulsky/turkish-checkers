@@ -1,5 +1,6 @@
 #define byte unsigned char
 #define Dmy 1
+#define Dhis 2
 // com.asm
 	extern "C" Out_Chr();
 	extern "C" Get_Chr();
@@ -23,19 +24,30 @@ void graph_rst();
 void rectangle(int x1, int x2, int y1, int y2, byte color);
 void paint_empty_board();
 void debug_ini();
-void debug_print(char* str, int size, byte color);
+void debug_print(byte* str, int size, byte color);
 void mainloop();
-void send_str(char* str, int size);
+void send_str(byte* str, int size);
 void connect();
 void timer_ini();
 void read_all();
+byte random_gesture();
+void game();
+void connect_send_automat();
+void connect_get_automat(byte c);
+void rockPaperScissors(byte c);
 
-enum connect_status {START, C0PING};
+enum chip {None, White, Black};
+enum connect_send_status {CSSTART, C0PING, CxSEND};
+enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
 
 byte Page;
 byte timer18 = 0;
 byte timer55 = 0;
-connect_status cs = START;
+connect_send_status css = CSSTART;
+connect_get_status cgs = CGSTART;
+byte Cx;
+byte HisCx;
+chip MyColor = None; 
 
 void main() {
 	Key_Ini();
@@ -57,10 +69,20 @@ void main() {
 
 void mainloop() {
 	while(1) {
-		Key_Is_Esc();
-		asm jc end_mainloop
-		//debug_print(&timer55, 2, Dmy);
-		connect();
+		while (MyColor == None) {
+			Key_Is_Esc();
+			asm jc end_mainloop
+			connect();
+		}
+		while (1) {
+			Key_Is_Esc();
+			asm jc send_FF
+			game();
+		}
+send_FF:
+		send_str("EX", 2);
+		debug_print("EX", 2, Dmy);
+		break;
 	}
 end_mainloop:
 }
@@ -136,7 +158,7 @@ void debug_ini() {
 	rectangle(386, 389, 0, 349, 8);
 }
 
-void debug_print_line(char* line, int size, byte color) {
+void debug_print_line(byte* line, int size, byte color) {
 	// Максимальная длина строки 29 символов
 	const byte left = 50;
 	const byte right = 79;
@@ -144,6 +166,7 @@ void debug_print_line(char* line, int size, byte color) {
 	const byte down = 24;
 	const byte writex = 50;
 	const byte writey = 24;
+	Mouse_Hide();
 	asm {
 		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
 	// Прокрутка на одну строку вверх перед печатью очередной
@@ -169,9 +192,10 @@ void debug_print_line(char* line, int size, byte color) {
 		int 10h
 		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
 	}
+	Mouse_Show();
 }
 
-void debug_print(char* str, int size, byte color) {
+void debug_print(byte* str, int size, byte color) {
 	// 29 - максимальное кличество символов, печатаемое на одной строке
 	while (size > 0) {
 		int part = size <= 29 ? size : 29;
@@ -181,8 +205,8 @@ void debug_print(char* str, int size, byte color) {
 	}
 }
 
-void send_str(char* str, int size) {
-	char* str_end = str + size;
+void send_str(byte* str, int size) {
+	byte* str_end = str + size;
 	byte b;
 	while (str < str_end) {
 		b = *str;
@@ -208,22 +232,168 @@ void timer_ini() {
 	}
 }
 
+byte random_gesture() {
+	byte r;
+	asm {
+		mov ah, 0
+		int 1Ah
+		mov r, dl
+	}
+	byte random3 = r % 3;
+	return random3;
+}
+
 void connect() {
-	switch (cs) {
-		case START: {
+	// Отправка
+	connect_send_automat();
+
+	// Получение
+	byte c;
+	Get_Chr();
+	asm jc no_char
+	asm mov c, al
+	debug_print(&c, 1, 8);
+	timer55 = 0;
+	connect_get_automat(c);
+
+no_char:
+	if (timer55 > 18 && cgs != CGSTART) {
+		cgs = CGSTART;
+		css = CSSTART;
+		timer55 = 0;
+	}
+}
+
+void connect_send_automat() {
+	switch (css) {
+		case CSSTART: {
 			timer18 = 0;
-			cs = C0PING;
+			css = C0PING;
 			debug_print("Start", 5, 8);
+			send_str("C0", 2);
+			debug_print("C0", 2, Dmy);
 			break;
 		}
 		case C0PING: {
 			if (timer18 >= 18) {
 				timer18 = 0;
+				cgs = CGSTART;
 				send_str("C0", 2);
 				debug_print("C0", 2, Dmy);
-				break;
 			}
+			break;
+		}
+		case CxSEND: {
+			byte cx_str[2];
+			cx_str[0] = 'C';
+			cx_str[1] = Cx + 49;
+			send_str("C0", 2);
+			debug_print("C0", 2, Dmy);
+			send_str(cx_str, 2);
+			debug_print(cx_str, 2, Dmy);
+			// Если через 18 не будет ответного Cx, идем на начало.
+			timer18 = 0;
+			css = C0PING;
+			break;
 		}
 		default: {}
 	}
+}
+
+void connect_get_automat(byte c) {
+	switch (cgs) {
+		case CGSTART: {
+			if (c == 'C') {
+				cgs = GetC;
+			} else {
+				css = CSSTART;
+			}
+			break;
+		}
+		case GetC: {
+			if (c == '0') {
+				cgs = GetC0;
+				css = CxSEND;
+				debug_print("C0", 2, Dhis);
+				Cx = random_gesture();
+			} else {
+				cgs = CGSTART;
+				css = CSSTART;
+			}
+			break;
+		}
+		case GetC0: {
+			if (c == 'C') {
+				cgs = GetC0C;
+			} else {
+				cgs = CGSTART;
+				css = CSSTART;
+			}
+			break;
+		}
+		case GetC0C: {
+			if (c == '0') {
+				cgs = GetC0C0;
+				debug_print("C0", 2, Dhis);
+			} else {
+				if (c == '1' || c == '2' || c == '3') {
+					rockPaperScissors(c);
+				} else {
+					cgs = CGSTART;
+					css = CSSTART;
+				}
+			}
+			break; 
+		}
+		case GetC0C0: {
+			if (c == 'C') {
+				cgs = GetC0C0C;
+			} else {
+				cgs = CGSTART;
+				css = CSSTART;
+			}
+			break;
+		}
+		case GetC0C0C: {
+			if (c == '0') {
+				cgs = GetC0;
+				debug_print("C0", 2, Dhis);
+			} else {
+				if (c == '1' || c == '2' || c == '3') {
+					rockPaperScissors(c);
+				} else {
+					cgs = CGSTART;
+					css = CSSTART;
+				}
+			}
+			break; 
+		}
+		default: {}
+	}
+}
+
+void rockPaperScissors(byte c) {
+	cgs = CGEXIT;
+	HisCx = c - 49;
+	byte cx_str[2];
+	cx_str[0] = 'C';
+	cx_str[1] = HisCx + 49;
+	debug_print(cx_str, 2, Dhis);
+	if (Cx == HisCx) {
+		cgs = CGSTART;
+		css = CSSTART;
+		MyColor = None;
+	} else {
+		byte cnb = Cx * 10 + HisCx;
+		// Первая цифра - я. У победителя черный.
+		if (cnb == 12 || cnb == 23 || cnb == 31) {
+			MyColor = Black;
+		} else {
+			MyColor = White;
+		}
+	}
+}
+
+void game() {
+
 }
