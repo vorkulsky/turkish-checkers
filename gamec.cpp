@@ -39,14 +39,18 @@ void connect_get_automat(byte c);
 void rockPaperScissors(byte c);
 void sendSS();
 void error();
+void skip_chat();
+void handle_keyboard();
+void ng_automat();
 
 enum chip {None, White, Black};
 enum connect_send_status {CSSTART, C0PING, CxSEND};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
 enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGGAME};
-enum ng_status {NGSTART, NGN};
+enum ng_status {NGSTART, NGN, NGD};
 
 byte Page;
+byte STR[64];
 byte timer18 = 0;
 byte timer55 = 0;
 connect_send_status css = CSSTART;
@@ -309,13 +313,12 @@ void connect_send_automat() {
 			break;
 		}
 		case CxSEND: {
-			byte cx_str[2];
-			cx_str[0] = 'C';
-			cx_str[1] = Cx + 49;
+			STR[0] = 'C';
+			STR[1] = Cx + 49;
 			send_str("C0", 2);
 			debug_print("C0", 2, Dmy);
-			send_str(cx_str, 2);
-			debug_print(cx_str, 2, Dmy);
+			send_str(STR, 2);
+			debug_print(STR, 2, Dmy);
 			// Если через 18 не будет ответного Cx, идем на начало.
 			timer18 = 0;
 			css = C0PING;
@@ -400,10 +403,9 @@ void connect_get_automat(byte c) {
 void rockPaperScissors(byte c) {
 	cgs = CGEXIT;
 	HisCx = c - 49;
-	byte cx_str[2];
-	cx_str[0] = 'C';
-	cx_str[1] = HisCx + 49;
-	debug_print(cx_str, 2, Dhis);
+	STR[0] = 'C';
+	STR[1] = HisCx + 49;
+	debug_print(STR, 2, Dhis);
 	if (Cx == HisCx) {
 		cgs = CGSTART;
 		css = CSSTART;
@@ -436,46 +438,88 @@ void error() {
 	ggs = GGNEW;
 }
 
+void skip_chat() {
+	byte c = 0;
+	while (c != '$') {
+		Get_Chr();
+		asm jc no_char
+		asm mov c, al
+no_char:
+	}
+}
 
-void game() {
+void handle_keyboard() {
 	byte key;
-	if (NG_is_sent == 0) {
-		Get_Key();
-		asm jnc no_key
-		asm mov key, al
-		if (key == 0xA2) { //g
+	Get_Key();
+	asm jnc no_key
+	asm mov key, al
+	if (key == 0xA2) { //g
+		if (NG_is_sent == 0) {
 			debug_print("NG", 2, Dmy);
 			send_str("NG", 2);
 			NG_is_sent = 1;
 		}
-	no_key:
 	}
+	no_key:
+}
+
+void ng_automat() {
+	byte c;
+	Get_Chr();
+	asm jc no_char
+	asm mov c, al
+	debug_print(&c, 1, 8);
+	timer55 = 0;
+	switch (ngs) {
+		case NGSTART: {
+			//debug_print("NGSTART", 7, Dmy);
+/*			switch (c) {
+				case 'N': ngs = NGN; break;
+				case 'S': break;
+				case 'M':
+				case 'L': skip_chat(); break;
+				//case 'D': ngs = NGD; break;
+				default: error();
+			}*/
+			if (c == 'N') {
+				ngs = NGN;
+			} else if (c == 'S') {
+			} else if (c == 'M' || c == 'L') {
+				skip_chat();
+			//} else if (c == 'D') {
+			//	ngs = NGD;
+			} else error();
+			break;
+		}
+		case NGN: {
+			if (c == 'G') {
+				debug_print("NG", 2, Dhis);
+				NG_is_received = 1;
+			} else error();
+			break;
+		}
+/*		case NGD: {
+			if (c == '0') {
+				debug_print("D0", 2, Dhis);
+				ggs = GGNEW;
+			} else if (c > '3' && c <= '9') {
+				STR[0] = 'D';
+				STR[1] = c;
+				debug_print(STR, 2, Dhis);
+				ngs = NGSTART;
+			} else error();
+			break;
+		}*/
+		default: {}
+	}
+no_char:
+}
+
+void game() {
+	handle_keyboard();
 
 	if (NG_is_received == 0) {
-		byte c;
-		Get_Chr();
-		asm jc no_char
-		asm mov c, al
-		debug_print(&c, 1, 8);
-		timer55 = 0;
-		switch (ngs) {
-			case NGSTART: {
-				if (c == 'N') {
-					ngs = NGN;
-				} else if (c == 'S') {
-				} else error();
-				break;
-			}
-			case NGN: {
-				if (c == 'G') {
-					NG_is_received = 1;
-				} else if (c == 'S') {
-				} else error();
-				break;
-			}
-			default: {}
-		}
-	no_char:
+		ng_automat();
 	}
 
 	if (NG_is_sent == 1 && NG_is_received == 1) {
