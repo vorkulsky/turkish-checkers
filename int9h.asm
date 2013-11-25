@@ -4,6 +4,8 @@
 	public Key_Ini
 	public Key_Rst
 	public Key_Is_Esc
+	public Get_Key
+locals
 org 5h
 
 Key_Ini proc near
@@ -45,20 +47,37 @@ Key_Rst endp
 Key_Is_Esc proc near
 ; CF=1 YES
 	cmp buffer[1], 1h
-	jne no_key
+	jne @@no_key
 	push ax
 	mov al, buffer[0]
-	mov buffer[0], 0
 	cmp al, 81h
 	pop ax
-	je is_esc
-no_key:
+	je @@is_esc
+@@no_key:
 	clc ; CF=0
 	ret
-is_esc:
+@@is_esc:
+	mov buffer[1], 0
 	stc ; CF=1
 	ret
 Key_Is_Esc endp
+
+Get_Key proc near
+; CF=1 - есть символ, но не esc
+; al - код символа
+	cmp buffer[1], 1h
+	jne @@no_key
+	mov al, buffer[0]
+	cmp al, 81h
+	je @@is_esc
+	mov buffer[1], 0
+	stc ; CF=1
+	ret
+@@is_esc:
+@@no_key:
+	clc ; CF=0
+	ret
+Get_Key endp
 
 int9h proc near
 	push ax

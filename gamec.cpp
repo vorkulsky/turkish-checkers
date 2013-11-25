@@ -10,6 +10,7 @@
 	extern "C" Key_Ini();
 	extern "C" Key_Rst();
 	extern "C" Key_Is_Esc();
+	extern "C" Get_Key();
 // mouse.asm
 	extern "C" Mouse_Ini();
 	extern "C" Mouse_Rst();
@@ -26,6 +27,7 @@ void paint_empty_board();
 void debug_ini();
 void debug_print(byte* str, int size, byte color);
 void mainloop();
+void gameloop();
 void send_str(byte* str, int size);
 void connect();
 void timer_ini();
@@ -35,10 +37,14 @@ void game();
 void connect_send_automat();
 void connect_get_automat(byte c);
 void rockPaperScissors(byte c);
+void sendSS();
+void error();
 
 enum chip {None, White, Black};
 enum connect_send_status {CSSTART, C0PING, CxSEND};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
+enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGGAME};
+enum ng_status {NGSTART, NGN};
 
 byte Page;
 byte timer18 = 0;
@@ -47,7 +53,11 @@ connect_send_status css = CSSTART;
 connect_get_status cgs = CGSTART;
 byte Cx;
 byte HisCx;
-chip MyColor = None; 
+chip MyColor = None;
+global_game_status ggs = GGCONNECT;
+byte NG_is_sent = 0;
+byte NG_is_received = 0;
+ng_status ngs = NGSTART;
 
 void main() {
 	Key_Ini();
@@ -68,23 +78,39 @@ void main() {
 }
 
 void mainloop() {
-	while(1) {
-		while (MyColor == None) {
-			Key_Is_Esc();
-			asm jc end_mainloop
-			connect();
-		}
-		while (1) {
-			Key_Is_Esc();
-			asm jc send_FF
-			game();
-		}
-send_FF:
-		send_str("EX", 2);
-		debug_print("EX", 2, Dmy);
-		break;
+connect:
+	MyColor = None;
+	while (MyColor == None) {
+		Key_Is_Esc();
+		asm jc end_mainloop
+		connect();
 	}
+	gameloop();
+	if (ggs == GGCONNECT) goto connect;
 end_mainloop:
+}
+
+void gameloop() {
+newgame:
+	debug_print("New game", 8, 8);
+	ggs = GGSTART;
+	timer18 = 0;
+	timer55 = 0;
+	NG_is_sent = 0;
+	NG_is_received = 0;
+	ngs = NGSTART;
+	while (1) {
+		Key_Is_Esc();
+		asm jc send_EX
+		sendSS();
+		game();
+		if (ggs == GGNEW) goto newgame;
+		if (ggs == GGCONNECT) goto end_gameloop;
+	}
+send_EX:
+	send_str("EX", 2);
+	debug_print("EX", 2, Dmy);
+end_gameloop:
 }
 
 void graph_ini() {
@@ -252,7 +278,6 @@ void connect() {
 	Get_Chr();
 	asm jc no_char
 	asm mov c, al
-	debug_print(&c, 1, 8);
 	timer55 = 0;
 	connect_get_automat(c);
 
@@ -394,6 +419,69 @@ void rockPaperScissors(byte c) {
 	}
 }
 
+void sendSS() {
+	if (timer18 >= 18) {
+		debug_print("SS", 2, Dmy);
+		send_str("SS", 2);
+		timer18 = 0;
+	}
+	if (timer55 >= 55) {
+		ggs = GGCONNECT;
+	}
+}
+
+void error() {
+	debug_print("D0", 2, Dmy);
+	send_str("D0", 2);
+	ggs = GGNEW;
+}
+
+
 void game() {
+	byte key;
+	if (NG_is_sent == 0) {
+		Get_Key();
+		asm jnc no_key
+		asm mov key, al
+		if (key == 0xA2) { //g
+			debug_print("NG", 2, Dmy);
+			send_str("NG", 2);
+			NG_is_sent = 1;
+		}
+	no_key:
+	}
+
+	if (NG_is_received == 0) {
+		byte c;
+		Get_Chr();
+		asm jc no_char
+		asm mov c, al
+		debug_print(&c, 1, 8);
+		timer55 = 0;
+		switch (ngs) {
+			case NGSTART: {
+				if (c == 'N') {
+					ngs = NGN;
+				} else if (c == 'S') {
+				} else error();
+				break;
+			}
+			case NGN: {
+				if (c == 'G') {
+					NG_is_received = 1;
+				} else if (c == 'S') {
+				} else error();
+				break;
+			}
+			default: {}
+		}
+	no_char:
+	}
+
+	if (NG_is_sent == 1 && NG_is_received == 1) {
+		if (MyColor == White) MyColor = Black;
+		else MyColor = White;
+		ggs = GGGAME;
+	}
 
 }
