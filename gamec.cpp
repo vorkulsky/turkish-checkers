@@ -42,15 +42,20 @@ void error();
 void skip_chat();
 void handle_keyboard();
 void ng_automat();
+void get_command();
+void get_automat(byte c);
 
 enum chip {None, White, Black};
 enum connect_send_status {CSSTART, C0PING, CxSEND};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
 enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGGAME};
 enum ng_status {NGSTART, NGN, NGD};
+enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
+enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX};
 
 byte Page;
 byte STR[64];
+byte hishod[32];
 byte timer18 = 0;
 byte timer55 = 0;
 connect_send_status css = CSSTART;
@@ -62,6 +67,11 @@ global_game_status ggs = GGCONNECT;
 byte NG_is_sent = 0;
 byte NG_is_received = 0;
 ng_status ngs = NGSTART;
+get_status getst = GETSTART;
+command comm;
+byte XLen;
+byte templen;
+byte isNewCommand = 0;
 
 void main() {
 	Key_Ini();
@@ -103,6 +113,9 @@ newgame:
 	NG_is_sent = 0;
 	NG_is_received = 0;
 	ngs = NGSTART;
+	getst = GETSTART;
+	isNewCommand = 0;
+
 	while (1) {
 		Key_Is_Esc();
 		asm jc send_EX
@@ -463,63 +476,23 @@ void handle_keyboard() {
 	no_key:
 }
 
-void ng_automat() {
-	byte c;
-	Get_Chr();
-	asm jc no_char
-	asm mov c, al
-	debug_print(&c, 1, 8);
-	timer55 = 0;
-	switch (ngs) {
-		case NGSTART: {
-			//debug_print("NGSTART", 7, Dmy);
-/*			switch (c) {
-				case 'N': ngs = NGN; break;
-				case 'S': break;
-				case 'M':
-				case 'L': skip_chat(); break;
-				//case 'D': ngs = NGD; break;
-				default: error();
-			}*/
-			if (c == 'N') {
-				ngs = NGN;
-			} else if (c == 'S') {
-			} else if (c == 'M' || c == 'L') {
-				skip_chat();
-			//} else if (c == 'D') {
-			//	ngs = NGD;
-			} else error();
-			break;
-		}
-		case NGN: {
-			if (c == 'G') {
-				debug_print("NG", 2, Dhis);
-				NG_is_received = 1;
-			} else error();
-			break;
-		}
-/*		case NGD: {
-			if (c == '0') {
-				debug_print("D0", 2, Dhis);
-				ggs = GGNEW;
-			} else if (c > '3' && c <= '9') {
-				STR[0] = 'D';
-				STR[1] = c;
-				debug_print(STR, 2, Dhis);
-				ngs = NGSTART;
-			} else error();
-			break;
-		}*/
-		default: {}
-	}
-no_char:
-}
-
 void game() {
 	handle_keyboard();
 
 	if (NG_is_received == 0) {
-		ng_automat();
+		get_command();
+		if (isNewCommand == 1) {
+			isNewCommand = 0;
+			if (getst != GETERR) {
+				if (comm == COMNG) {
+					NG_is_received = 1;
+				} else if (comm == COMC0) {
+					ggs = GGCONNECT;
+				}
+			} else {
+				error();
+			}
+		}
 	}
 
 	if (NG_is_sent == 1 && NG_is_received == 1) {
@@ -528,4 +501,204 @@ void game() {
 		ggs = GGGAME;
 	}
 
+}
+
+void get_command() {
+	isNewCommand = 0;
+
+	while (1) {
+		byte c;
+		Get_Chr();
+		asm jc no_char
+		asm mov c, al
+		debug_print(&c, 1, 8);
+		timer55 = 0;
+		get_automat(c);
+		if (getst == GETSTART || getst == GETERR) {
+			isNewCommand = 1;
+			goto no_char;
+		}
+	}
+no_char:
+}
+
+void get_automat(byte c) {
+	if (getst == GETNEXT) getst = GETSTART;
+
+	switch (getst) {
+		case GETSTART: {
+			switch (c) {
+				case 'S': {
+					getst = GETS;
+					break;
+				}
+				case 'C': {
+					getst = GETC;
+					break;
+				}
+				case 'N': {
+					getst = GETN;
+					break;
+				}
+				case 'D': {
+					getst = GETD;
+					break;
+				}
+				case 'F': {
+					getst = GETF;
+					break;
+				}
+				case 'E': {
+					getst = GETE;
+					break;
+				}
+				case 'L':
+				case 'M': {
+					getst = GETLM;
+					break;
+				}
+				case 'X': {
+					getst = GETX;
+					break;
+				}
+				default: {
+					getst = GETERR;
+				}
+			}
+			break;
+		}
+		case GETS: {
+			if (c == 'S') {
+				debug_print("SS", 2, Dhis);
+				getst = GETNEXT;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETC: {
+			if (c == '0') {
+				debug_print("C0", 2, Dhis);
+				comm = COMC0;
+				getst = GETSTART;
+			} else if (c == '1' || c == '2' || c == '3') {
+				STR[0] = 'C';
+				STR[1] = c;
+				debug_print(STR, 2, Dhis);
+				comm = COMCx;
+				Cx = c - 49;
+				getst = GETSTART;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETN: {
+			if (c == 'G') {
+				debug_print("NG", 2, Dhis);
+				comm = COMNG;
+				getst = GETSTART;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETD: {
+			switch (c) {
+				case '0': {
+					debug_print("D0", 2, Dhis);
+					comm = COMD0;
+					getst = GETSTART;
+					break;
+				}
+				case '2': {
+					debug_print("D2", 2, Dhis);
+					comm = COMD2;
+					getst = GETSTART;
+					break;
+				}
+				case '3': {
+					debug_print("D3", 2, Dhis);
+					comm = COMD3;
+					getst = GETSTART;
+					break;
+				}
+				default: {
+					if (c > '3' && c <= '9') {
+						STR[0] = 'D';
+						STR[1] = c;
+						debug_print(STR, 2, Dhis);
+						getst = GETNEXT;
+					} else {
+						getst = GETERR;
+					}
+				}
+			}
+			break;
+		}
+		case GETF: {
+			if (c == 'F') {
+				debug_print("FF", 2, Dhis);
+				comm = COMFF;
+				getst = GETSTART;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETE: {
+			if (c == 'X') {
+				debug_print("EX", 2, Dhis);
+				comm = COMEX;
+				getst = GETSTART;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETLM: {
+			if (c == '$') {
+				debug_print("ML$", 3, Dhis);
+				getst = GETNEXT;
+			}
+			break;
+		}
+		case GETX: {
+			if (c == '0' || c == '1') {
+				XLen = c - 49;
+				getst = GETXX;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETXX: {
+			if (c >= '0' && c <= '9') {
+				XLen = XLen*10 + (c - 49);
+				templen = 0;
+				getst = GETLEN;
+			} else {
+				getst = GETERR;
+			}
+			break;
+		}
+		case GETLEN: {
+			if (templen >= XLen*2) {
+				STR[0] = 'X';
+				STR[1] = XLen / 10 + 49;
+				STR[2] = XLen % 10 + 49;
+				for (int i=0; i< XLen*2; i++) {
+					STR[i+3] = hishod[i];
+				} 
+				debug_print(STR, 3+XLen*2, Dhis);
+			} else {
+				hishod[templen] = c;
+				templen++;
+			}
+			break;
+		}
+		default: {
+			getst = GETERR;
+		}
+	}
 }
