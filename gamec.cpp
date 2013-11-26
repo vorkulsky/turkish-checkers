@@ -528,42 +528,16 @@ void get_automat(byte c) {
 	switch (getst) {
 		case GETSTART: {
 			switch (c) {
-				case 'S': {
-					getst = GETS;
-					break;
-				}
-				case 'C': {
-					getst = GETC;
-					break;
-				}
-				case 'N': {
-					getst = GETN;
-					break;
-				}
-				case 'D': {
-					getst = GETD;
-					break;
-				}
-				case 'F': {
-					getst = GETF;
-					break;
-				}
-				case 'E': {
-					getst = GETE;
-					break;
-				}
+				case 'S': getst = GETS; break;
+				case 'C': getst = GETC; break;
+				case 'N': getst = GETN; break;
+				case 'D': getst = GETD; break;
+				case 'F': getst = GETF; break;
+				case 'E': getst = GETE; break;
 				case 'L':
-				case 'M': {
-					getst = GETLM;
-					break;
-				}
-				case 'X': {
-					getst = GETX;
-					break;
-				}
-				default: {
-					getst = GETERR;
-				}
+				case 'M': getst = GETLM;break;
+				case 'X': getst = GETX; break;
+				default:  getst = GETERR;
 			}
 			break;
 		}
@@ -581,7 +555,7 @@ void get_automat(byte c) {
 				debug_print("C0", 2, Dhis);
 				comm = COMC0;
 				getst = GETSTART;
-			} else if (c == '1' || c == '2' || c == '3') {
+			} else if (c >= '1' && c <= '3') {
 				STR[0] = 'C';
 				STR[1] = c;
 				debug_print(STR, 2, Dhis);
@@ -624,7 +598,7 @@ void get_automat(byte c) {
 					break;
 				}
 				default: {
-					if (c > '3' && c <= '9') {
+					if (c >= '4' && c <= '9') {
 						STR[0] = 'D';
 						STR[1] = c;
 						debug_print(STR, 2, Dhis);
