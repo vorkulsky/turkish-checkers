@@ -28,6 +28,7 @@ enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGBoardInit, GGStartStepWhit
 enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
 enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX};
 enum mouse_click_status {MCNone, MCBoard};
+enum direction {DNone, DLeft, DRight, DUp, DDown};
 
 void graph_ini();
 void graph_rst();
@@ -92,7 +93,7 @@ int click_y;
 byte futureDamka;
 byte selected_x;
 byte selected_y;
-
+direction forbidden_direction;
 
 void main() {
 	Key_Ini();
@@ -795,25 +796,33 @@ byte damka_can_eat(byte x, byte y, chip color) {
 		damka = WDamka;
 	}
 	byte xi, yi;
-	yi = y;
-	while (yi<6) {
-		if (board[yi+2][x] == None && (board[yi+1][x] == usual || board[yi+1][x] == damka)) return 1;
-		yi++;
+	if (forbidden_direction != DRight) {
+		yi = y;
+		while (yi<6) {
+			if (board[yi+2][x] == None && (board[yi+1][x] == usual || board[yi+1][x] == damka)) return 1;
+			yi++;
+		}
 	}
-	yi = y;
-	while (yi>1) {
-		if (board[yi-2][x] == None && (board[yi-1][x] == usual || board[yi-1][x] == damka)) return 1;
-		yi--;
+	if (forbidden_direction != DLeft) {
+		yi = y;
+		while (yi>1) {
+			if (board[yi-2][x] == None && (board[yi-1][x] == usual || board[yi-1][x] == damka)) return 1;
+			yi--;
+		}
 	}
-	xi = x;
-	while (xi<6) {
-		if (board[y][xi+2] == None && (board[y][xi+1] == usual || board[y][xi+1] == damka)) return 1;
-		xi++;
+	if (forbidden_direction != DUp) {
+		xi = x;
+		while (xi<6) {
+			if (board[y][xi+2] == None && (board[y][xi+1] == usual || board[y][xi+1] == damka)) return 1;
+			xi++;
+		}
 	}
-	xi = x;
-	while (xi>1) {
-		if (board[y][xi-2] == None && (board[y][xi-1] == usual || board[y][xi-1] == damka)) return 1;
-		xi++;
+	if (forbidden_direction != DDown) {
+		xi = x;
+		while (xi>1) {
+			if (board[y][xi-2] == None && (board[y][xi-1] == usual || board[y][xi-1] == damka)) return 1;
+			xi++;
+		}
 	}
 	return 0;
 }
@@ -870,6 +879,7 @@ byte do_step(byte x, byte y, chip color) {
 }
 
 byte do_eat(byte x, byte y, chip color) {
+	forbidden_direction = DNone;
 	return 0;
 }
 
@@ -960,6 +970,7 @@ void game() {
 				if (can_step(click_x, click_y, White)) {
 					apply_select(click_x, click_y, 1);
 					futureDamka = 0;
+					forbidden_direction = DNone;
 					ggs = GGStepWhite;
 				}
 			}
@@ -972,6 +983,7 @@ void game() {
 				if (can_step(click_x, click_y, Black)) {
 					apply_select(click_x, click_y, 1);
 					futureDamka = 0;
+					forbidden_direction = DNone;
 					ggs = GGStepBlack;
 				}
 			}
