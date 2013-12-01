@@ -58,7 +58,7 @@ void get_automat(byte c);
 void apply_color(byte x, byte y);
 void apply_select(byte x, byte y, byte select);
 byte get_click();
-byte can_step(byte x, byte y, chip color); // color - Ñ†Ð²ÐµÑ‚ Ñ…Ð¾Ð´ÑÑ‰ÐµÐ³Ð¾.
+byte can_step(byte x, byte y, chip color); // color - æ¢¥â å®¤ïé¥£®.
 byte can_eat(byte x, byte y, chip color);
 byte can_move(byte x, byte y, chip color);
 byte anyone_can_eat(chip color);
@@ -70,6 +70,9 @@ byte do_move(byte x, byte y, chip color);
 byte damka_do_move(byte x, byte y);
 void start_step(chip color);
 void board_init();
+byte damka_do_eat(byte x, byte y, chip color);
+byte usual_do_eat(byte x, byte y, chip color);
+void usual_eat(byte x, byte y);
 
 byte Page;
 byte STR[64];
@@ -131,7 +134,7 @@ end_mainloop:
 
 void gameloop() {
 newgame:
-	debug_print("New game", 8, 8);
+	debug_print("®¢ ï ¨£à ", 10, 8);
 	ggs = GGSTART;
 	timer18 = 0;
 	timer55 = 0;
@@ -155,7 +158,7 @@ end_gameloop:
 }
 
 void graph_ini() {
-	// ÐŸÐµÑ€ÐµÑ…Ð¾Ð´ Ð² 10h Ð³Ñ€Ð°Ñ„Ð¸Ñ‡ÐµÑÐºÐ¸Ð¹ Ñ€ÐµÐ¶Ð¸Ð¼
+	// ¥à¥å®¤ ¢ 10h £à ä¨ç¥áª¨© à¥¦¨¬
 	asm {
 		mov ah, 00h
 		mov al, 10h
@@ -167,7 +170,7 @@ void graph_ini() {
 }
 
 void graph_rst() {
-	// Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰ÐµÐ½Ð¸Ðµ ÑÑ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð¾Ð³Ð¾ Ð²Ð¸Ð´ÐµÐ¾-Ñ€ÐµÐ¶Ð¸Ð¼Ð°	
+	// ‚®§¢à é¥­¨¥ áâ ­¤ àâ­®£® ¢¨¤¥®-à¥¦¨¬ 	
 	asm {
 		mov ah, 00h
 		mov al, 3h
@@ -196,7 +199,7 @@ void paint_empty_board() {
 	byte color = 6;
 
 	int x1, x2, y1, y2;
-	// Ð Ð°ÑÑ‡ÐµÑ€Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð¿Ð¾ Ð²ÐµÑ€Ñ‚Ð¸ÐºÐ°Ð»Ð¸
+	//  áç¥àç¨¢ ¥¬ ¯® ¢¥àâ¨ª «¨
 	y1 = 0;
 	y2 = 345;
 	x1 = 0;
@@ -207,7 +210,7 @@ void paint_empty_board() {
 		 x2 += 43;
 	}
 
-	// Ð Ð°ÑÑ‡ÐµÑ€Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð¿Ð¾ Ð³Ð¾Ñ€Ð¸Ð·Ð¾Ð½Ñ‚Ð°Ð»Ð¸
+	//  áç¥àç¨¢ ¥¬ ¯® £®à¨§®­â «¨
 	y1 = 0;
 	y2 = y1 + 1;
 	x1 = 0;
@@ -224,10 +227,10 @@ void paint_empty_board() {
 void apply_color(byte x, byte y) {
 	byte color;
 	switch (board[y][x]) {
-		case White: color = 7; break;
+		case White: color = 8; break;
 		case WDamka: color = 15; break;
 		case Black: color = 1; break;
-		case BDamka: color = 9; break;
+		case BDamka: color = 11; break;
 		default: color = 0;
 	}
 	if (MyColor == White) {
@@ -274,8 +277,8 @@ void debug_ini() {
 	rectangle(386, 389, 0, 349, 8);
 }
 
-void debug_print_line(byte* line, int size, byte color) {
-	// ÐœÐ°ÐºÑÐ¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð»Ð¸Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐ¸ 29 ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð²
+void debug_print_line(char* line, int size, byte color) {
+	// Œ ªá¨¬ «ì­ ï ¤«¨­  áâà®ª¨ 29 á¨¬¢®«®¢
 	const byte left = 50;
 	const byte right = 79;
 	const byte up = 0;
@@ -285,7 +288,7 @@ void debug_print_line(byte* line, int size, byte color) {
 	Mouse_Hide();
 	asm {
 		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
-	// ÐŸÑ€Ð¾ÐºÑ€ÑƒÑ‚ÐºÐ° Ð½Ð° Ð¾Ð´Ð½Ñƒ ÑÑ‚Ñ€Ð¾ÐºÑƒ Ð²Ð²ÐµÑ€Ñ… Ð¿ÐµÑ€ÐµÐ´ Ð¿ÐµÑ‡Ð°Ñ‚ÑŒÑŽ Ð¾Ñ‡ÐµÑ€ÐµÐ´Ð½Ð¾Ð¹
+	// à®ªàãâª  ­  ®¤­ã áâà®ªã ¢¢¥àå ¯¥à¥¤ ¯¥ç âìî ®ç¥à¥¤­®©
 		mov ah, 6
 		mov al, 1
 		mov bx, 0000h
@@ -294,7 +297,7 @@ void debug_print_line(byte* line, int size, byte color) {
 		mov dh, down
 		mov dl, right
 		int 10h
-	// ÐŸÐµÑ‡Ð°Ñ‚ÑŒ Ð»Ð¸Ð½Ð¸Ð¸
+	// ¥ç âì «¨­¨¨
 		mov ah, 13h
 		mov al, 0
 		mov bh, Page
@@ -311,13 +314,13 @@ void debug_print_line(byte* line, int size, byte color) {
 	Mouse_Show();
 }
 
-void debug_print_byte(byte b, byte color) {
+void debug_print_byte(char b, byte color) {
 	byte c = b + 48;
 	debug_print(&c, 1, color);
 }
 
 void debug_print(byte* str, int size, byte color) {
-	// 29 - Ð¼Ð°ÐºÑÐ¸Ð¼Ð°Ð»ÑŒÐ½Ð¾Ðµ ÐºÐ»Ð¸Ñ‡ÐµÑÑ‚Ð²Ð¾ ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð², Ð¿ÐµÑ‡Ð°Ñ‚Ð°ÐµÐ¼Ð¾Ðµ Ð½Ð° Ð¾Ð´Ð½Ð¾Ð¹ ÑÑ‚Ñ€Ð¾ÐºÐµ
+	// 29 - ¬ ªá¨¬ «ì­®¥ ª«¨ç¥áâ¢® á¨¬¢®«®¢, ¯¥ç â ¥¬®¥ ­  ®¤­®© áâà®ª¥
 	while (size > 0) {
 		int part = size <= 29 ? size : 29;
 		debug_print_line(str, part, color);
@@ -365,10 +368,10 @@ byte random_gesture() {
 }
 
 void connect() {
-	// ÐžÑ‚Ð¿Ñ€Ð°Ð²ÐºÐ°
+	// Žâ¯à ¢ª 
 	connect_send_automat();
 
-	// ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ
+	// ®«ãç¥­¨¥
 	byte c;
 	Get_Chr();
 	asm jc no_char
@@ -389,7 +392,7 @@ void connect_send_automat() {
 		case CSSTART: {
 			timer18 = 0;
 			css = C0PING;
-			debug_print("Start", 5, 8);
+			debug_print("‘â àâ", 5, 8);
 			send_str("C0", 2);
 			debug_print("C0", 2, Dmy);
 			break;
@@ -410,7 +413,7 @@ void connect_send_automat() {
 			debug_print("C0", 2, Dmy);
 			send_str(STR, 2);
 			debug_print(STR, 2, Dmy);
-			// Ð•ÑÐ»Ð¸ Ñ‡ÐµÑ€ÐµÐ· 18 Ð½Ðµ Ð±ÑƒÐ´ÐµÑ‚ Ð¾Ñ‚Ð²ÐµÑ‚Ð½Ð¾Ð³Ð¾ Cx, Ð¸Ð´ÐµÐ¼ Ð½Ð° Ð½Ð°Ñ‡Ð°Ð»Ð¾.
+			// …á«¨ ç¥à¥§ 18 ­¥ ¡ã¤¥â ®â¢¥â­®£® Cx, ¨¤¥¬ ­  ­ ç «®.
 			timer18 = 0;
 			css = C0PING;
 			break;
@@ -503,7 +506,7 @@ void rockPaperScissors(byte c) {
 		MyColor = None;
 	} else {
 		byte cnb = Cx * 10 + HisCx;
-		// ÐŸÐµÑ€Ð²Ð°Ñ Ñ†Ð¸Ñ„Ñ€Ð° - Ñ. Ð£ Ð¿Ð¾Ð±ÐµÐ´Ð¸Ñ‚ÐµÐ»Ñ Ñ‡ÐµÑ€Ð½Ñ‹Ð¹.
+		// ¥à¢ ï æ¨äà  - ï. “ ¯®¡¥¤¨â¥«ï ç¥à­ë©.
 		if (cnb == 12 || cnb == 23 || cnb == 31) {
 			MyColor = Black;
 		} else {
@@ -753,13 +756,9 @@ no_clc:
 }
 
 byte can_step(byte x, byte y, chip color) {
-	debug_print("can_step", 8, 8);
 	if (can_eat(x, y, color)) return 1;
-	debug_print("not_can_eat", 11, 8);
 	if (can_move(x, y, color)) {
-		debug_print("can_move", 8, 8);
 		if (!anyone_can_eat(color)) {
-			debug_print("!anyone_can_eat", 15, 8);
 			return 1;
 		}
 	}
@@ -789,7 +788,7 @@ byte can_eat(byte x, byte y, chip color) {
 }
 
 byte damka_can_eat(byte x, byte y, chip color) {
-	chip usual, damka; // Ð¦Ð²ÐµÑ‚Ð° Ð¿Ñ€Ð¾Ñ‚Ð¸Ð²Ð½Ð¸ÐºÐ°
+	chip usual, damka; // –¢¥â  ¯à®â¨¢­¨ª 
 	if (color == White) {
 		usual = Black;
 		damka = BDamka;
@@ -798,48 +797,46 @@ byte damka_can_eat(byte x, byte y, chip color) {
 		damka = WDamka;
 	}
 	byte xi, yi;
-	if (forbidden_direction != DRight) {
+	if (forbidden_direction != DUp) {
 		yi = y;
 		while (yi<6) {
-			if (board[yi+2][x] == None && (board[yi+1][x] == usual || board[yi+1][x] == damka)) return 1;
+			if (board[yi+2][x] != None) break;
+			if (board[yi+1][x] == usual || board[yi+1][x] == damka) return 1;
 			yi++;
 		}
 	}
-	if (forbidden_direction != DLeft) {
+	if (forbidden_direction != DDown) {
 		yi = y;
 		while (yi>1) {
-			if (board[yi-2][x] == None && (board[yi-1][x] == usual || board[yi-1][x] == damka)) return 1;
+			if (board[yi-2][x] != None) break;
+			if (board[yi-1][x] == usual || board[yi-1][x] == damka) return 1;
 			yi--;
 		}
 	}
-	if (forbidden_direction != DUp) {
+	if (forbidden_direction != DRight) {
 		xi = x;
 		while (xi<6) {
-			if (board[y][xi+2] == None && (board[y][xi+1] == usual || board[y][xi+1] == damka)) return 1;
+			if (board[y][xi+2] != None) break;
+			if (board[y][xi+1] == usual || board[y][xi+1] == damka) return 1;
 			xi++;
 		}
 	}
-	if (forbidden_direction != DDown) {
+	if (forbidden_direction != DLeft) {
 		xi = x;
 		while (xi>1) {
-			if (board[y][xi-2] == None && (board[y][xi-1] == usual || board[y][xi-1] == damka)) return 1;
-			xi++;
+			if (board[y][xi-2] != None) break;
+			if (board[y][xi-1] == usual || board[y][xi-1] == damka) return 1;
+			xi--;
 		}
 	}
 	return 0;
 }
 
 byte anyone_can_eat(chip color) {
-	for (byte y=0; y<7; y++) {
-		for (byte x=0; x<7; x++) {
-			if (can_eat(x, y, color)) {
-				debug_print("anyone_can_eat", 14, 8);
-				debug_print_byte(x, 8);
-				debug_print_byte(y, 8);
+	for (byte y=0; y<7; y++)
+		for (byte x=0; x<7; x++)
+			if (can_eat(x, y, color))
 				return 1;
-			}
-		}
-	}
 	return 0;
 }
 
@@ -871,18 +868,42 @@ byte can_move(byte x, byte y, chip color) {
 
 byte do_step(byte x, byte y, chip color) {
 	if (can_eat(selected_x, selected_y, color)) {
-		debug_print("can_eat", 7, 8);
 		if (do_eat(x, y, color))
-			return 2; // 2 - Ñ…Ð¾Ð´ Ð·Ð°ÐºÐ¾Ð½Ñ‡Ð¸Ð»ÑÑ Ñ€ÑƒÐ±ÐºÐ¾Ð¹.
+			return 2; // 2 - å®¤ § ª®­ç¨«áï àã¡ª®©.
 		return 0;
 	} 
-	debug_print("do_move", 7, 8);
 	return do_move(x, y, color);
 }
 
 byte do_eat(byte x, byte y, chip color) {
-	forbidden_direction = DNone;
+	if (board[selected_y][selected_x] == White || board[selected_y][selected_x] == Black) {
+		return usual_do_eat(x, y, color);
+	}
+	return damka_do_eat(x, y, color);
+}
+
+byte damka_do_eat(byte x, byte y, chip color) {
 	return 0;
+}
+
+void usual_eat(byte x, byte y) {
+	board[y][x] = None;
+	apply_color(x, y);
+	forbidden_direction = DNone;
+}
+
+byte usual_do_eat(byte x, byte y, chip color) {
+	if (color == White) {
+		if (y > selected_y && y == selected_y+2 && (board[y-1][x] == Black || board[y-1][x] == BDamka)) {usual_eat(x, y-1); return 1;}
+		if (x > selected_x && x == selected_x+2 && (board[y][x-1] == Black || board[y][x-1] == BDamka)) {usual_eat(x-1, y); return 1;}
+		if (x < selected_x && x+2 == selected_x && (board[y][x+1] == Black || board[y][x+1] == BDamka)) {usual_eat(x+1, y); return 1;}
+		return 0;
+	} else {
+		if (y < selected_y && y+2 == selected_y && (board[y+1][x] == White || board[y+1][x] == WDamka)) {usual_eat(x, y+1); return 1;}
+		if (x > selected_x && x == selected_x+2 && (board[y][x-1] == White || board[y][x-1] == WDamka)) {usual_eat(x-1, y); return 1;}
+		if (x < selected_x && x+2 == selected_x && (board[y][x+1] == White || board[y][x+1] == WDamka)) {usual_eat(x+1, y); return 1;}
+		return 0;
+	}
 }
 
 byte do_move(byte x, byte y, chip color) {
@@ -948,7 +969,7 @@ void step(chip color) {
 				board[selected_y][selected_x] = None;
 				apply_color(selected_x, selected_y);
 				board[click_y][click_x] = old_chip;
-				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - Ð²Ð¾Ð·Ð¼Ð¾Ð¶ÐµÐ½ Ð¿Ð¾Ð²Ñ‚Ð¾Ñ€Ð½Ñ‹Ð¹ Ñ…Ð¾Ð´, Ñ‚.Ðº. Ð¿Ñ€ÐµÐ´Ñ‹Ð´ÑƒÑ‰Ð¸Ð¹ Ð±Ñ‹Ð» Ñ€ÑƒÐ±ÐºÐ¾Ð¹.
+				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - ¢®§¬®¦¥­ ¯®¢â®à­ë© å®¤, â.ª. ¯à¥¤ë¤ãé¨© ¡ë« àã¡ª®©.
 					apply_color(click_x, click_y);
 					apply_select(click_x, click_y, 1);
 					if ((color==White && click_y==7) || (color==Black && click_y==0)) futureDamka = 1;
