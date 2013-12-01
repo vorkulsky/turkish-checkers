@@ -40,6 +40,7 @@ Mouse_Clc proc near
 ; CF=1 - был клик, смотри координаты в x=ax, y=bx
 	cmp lb, 1
 	jne @@no_clc
+	mov lb, 0
 	mov ax, xl
 	mov bx, yl
 	stc ; CF=1

@@ -16,9 +16,18 @@
 	extern "C" Mouse_Rst();
 	extern "C" Mouse_Hide();
 	extern "C" Mouse_Show();
+	extern "C" Mouse_Clc();
 // timer.asm
 	extern "C" Timer_Ini();
 	extern "C" Timer_Rst();
+
+enum chip {None, White, Black, WDamka, BDamka};
+enum connect_send_status {CSSTART, C0PING, CxSEND};
+enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
+enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGBoardInit, GGStepWhite, GGStepBlack};
+enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
+enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX};
+enum mouse_click_status {MCNone, MCBoard};
 
 void graph_ini();
 void graph_rst();
@@ -44,14 +53,14 @@ void handle_keyboard();
 void ng_automat();
 void get_command();
 void get_automat(byte c);
-
-enum chip {None, White, Black};
-enum connect_send_status {CSSTART, C0PING, CxSEND};
-enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
-enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGGAME};
-enum ng_status {NGSTART, NGN, NGD};
-enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
-enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX};
+void apply_color(byte x, byte y);
+void apply_select(byte x, byte y, byte select);
+byte get_click();
+byte can_step(byte x, byte y, chip color); // color - цвет ходящего.
+byte can_eat(byte x, byte y, chip color);
+byte can_move(byte x, byte y, chip color);
+byte anyone_can_eat(chip color);
+byte damka_can_eat(byte x, byte y, chip color);
 
 byte Page;
 byte STR[64];
@@ -66,12 +75,14 @@ chip MyColor = None;
 global_game_status ggs = GGCONNECT;
 byte NG_is_sent = 0;
 byte NG_is_received = 0;
-ng_status ngs = NGSTART;
 get_status getst = GETSTART;
 command comm;
 byte XLen;
 byte templen;
 byte isNewCommand = 0;
+chip board[8][8];
+int click_x;
+int click_y;
 
 void main() {
 	Key_Ini();
@@ -93,12 +104,13 @@ void main() {
 
 void mainloop() {
 connect:
-	MyColor = None;
+	MyColor = White;
+/*	MyColor = None;
 	while (MyColor == None) {
 		Key_Is_Esc();
 		asm jc end_mainloop
 		connect();
-	}
+	}*/
 	gameloop();
 	if (ggs == GGCONNECT) goto connect;
 end_mainloop:
@@ -112,17 +124,16 @@ newgame:
 	timer55 = 0;
 	NG_is_sent = 0;
 	NG_is_received = 0;
-	ngs = NGSTART;
 	getst = GETSTART;
 	isNewCommand = 0;
-
+	ggs = GGBoardInit;
 	while (1) {
 		Key_Is_Esc();
 		asm jc send_EX
-		sendSS();
+		//sendSS();
 		game();
-		if (ggs == GGNEW) goto newgame;
-		if (ggs == GGCONNECT) goto end_gameloop;
+		//if (ggs == GGNEW) goto newgame;
+		//if (ggs == GGCONNECT) goto end_gameloop;
 	}
 send_EX:
 	send_str("EX", 2);
@@ -194,6 +205,51 @@ void paint_empty_board() {
 		 y2 += 43;
 	}
 
+	Mouse_Show();
+}
+
+void apply_color(byte x, byte y) {
+	byte color;
+	switch (board[y][x]) {
+		case White: color = 7; break;
+		case WDamka: color = 15; break;
+		case Black: color = 1; break;
+		case BDamka: color = 9; break;
+		default: color = 0;
+	}
+	if (MyColor == White) {
+		x = x;
+		y = 7-y;
+	} else {
+		x = 7-x;
+		y = y;
+	}
+	int x1 = 8 + x*43;
+	int x2 = 43 - 7 + x*43;
+	int y1 = 8 + y*43;
+	int y2 = 43 - 7 + y*43;
+	Mouse_Hide();
+	rectangle(x1, x2, y1, y2, color);
+	Mouse_Show();
+}
+
+void apply_select(byte x, byte y, byte select) {
+	byte color;
+	if (select) color = 14;
+	else color = 0;
+	if (MyColor == White) {
+		x = x;
+		y = 7-y;
+	} else {
+		x = 7-x;
+		y = y;
+	}
+	int x1 = 43 - 5 + x*43;
+	int x2 = 43 - 2 + x*43;
+	int y1 = 3 + y*43;
+	int y2 = 6 + y*43;
+	Mouse_Hide();
+	rectangle(x1, x2, y1, y2, color);
 	Mouse_Show();
 }
 
@@ -476,33 +532,6 @@ void handle_keyboard() {
 	no_key:
 }
 
-void game() {
-	handle_keyboard();
-
-	if (NG_is_received == 0) {
-		get_command();
-		if (isNewCommand == 1) {
-			isNewCommand = 0;
-			if (getst != GETERR) {
-				if (comm == COMNG) {
-					NG_is_received = 1;
-				} else if (comm == COMC0) {
-					ggs = GGCONNECT;
-				}
-			} else {
-				error();
-			}
-		}
-	}
-
-	if (NG_is_sent == 1 && NG_is_received == 1) {
-		if (MyColor == White) MyColor = Black;
-		else MyColor = White;
-		ggs = GGGAME;
-	}
-
-}
-
 void get_command() {
 	isNewCommand = 0;
 
@@ -675,4 +704,196 @@ void get_automat(byte c) {
 			getst = GETERR;
 		}
 	}
+}
+
+byte get_click() {
+	int x, y;
+	Mouse_Clc();
+	asm {
+		jnc no_clc;
+		mov x, ax
+		mov y, bx;
+	}
+	if (x < 345 && y < 345) {
+		x = x / 43;
+		y = y / 43;
+		if (MyColor == White) {
+			click_x = x;
+			click_y = 7-y;
+		} else {
+			click_x = 7-x;
+			click_y = y;
+		}
+	}
+	return MCBoard;
+no_clc:
+ 	return MCNone;
+}
+
+byte can_step(byte x, byte y, chip color) {
+	if (can_eat(x, y, color)) return 1;
+	if (can_move(x, y, color)) {
+		if (!anyone_can_eat(color))
+			return 1;
+	}
+	return 0;
+}
+
+byte can_eat(byte x, byte y, chip color) {
+	if (color == White) {
+		if (board[y][x] == White) {
+			if (y<6 && board[y+2][x] == None && (board[y+1][x] == Black || board[y+1][x] == BDamka)) return 1;
+			if (x>1 && board[y][x-2] == None && (board[y][x-1] == Black || board[y][x-1] == BDamka)) return 1;
+			if (x<6 && board[y][x+2] == None && (board[y][x+1] == Black || board[y][x+1] == BDamka)) return 1;
+		} else if (board[y][x] == WDamka) {
+			if (damka_can_eat(x, y, color)) return 1;
+		}
+		return 0;
+	} else {
+		if (board[y][x] == Black) {
+			if (y>1 && board[y-2][x] == None && (board[y-1][x] == Black || board[y-1][x] == BDamka)) return 1;
+			if (x>1 && board[y][x-2] == None && (board[y][x-1] == Black || board[y][x-1] == BDamka)) return 1;
+			if (x<6 && board[y][x+2] == None && (board[y][x+1] == Black || board[y][x+1] == BDamka)) return 1;
+		} else if (board[y][x] == BDamka) {
+			if (damka_can_eat(x, y, color)) return 1;
+		}
+		return 0;
+	}
+}
+
+byte damka_can_eat(byte x, byte y, chip color) {
+	chip usual, damka;
+	if (color == White) {
+		usual = Black;
+		damka = BDamka;
+	} else {
+		usual = White;
+		damka = WDamka;
+	}
+	byte xi, yi;
+	yi = y;
+	while (yi<6) {
+		if (board[yi+2][x] == None && (board[yi+1][x] == usual || board[yi+1][x] == damka)) return 1;
+		yi++;
+	}
+	yi = y;
+	while (yi>1) {
+		if (board[yi-2][x] == None && (board[yi-1][x] == usual || board[yi-1][x] == damka)) return 1;
+		yi--;
+	}
+	xi = x;
+	while (xi<6) {
+		if (board[y][xi+2] == None && (board[y][xi+1] == usual || board[y][xi+1] == damka)) return 1;
+		xi++;
+	}
+	xi = x;
+	while (xi>1) {
+		if (board[y][xi-2] == None && (board[y][xi-1] == usual || board[y][xi-1] == damka)) return 1;
+		xi++;
+	}
+	return 0;
+}
+
+byte anyone_can_eat(chip color) {
+	for (int y=0; y<7; y++) {
+		for (int x=0; x<7; x++) {
+			if (can_eat(x, y, color))
+				return 1;
+		}
+	}
+	return 0;
+}
+
+byte can_move(byte x, byte y, chip color) {
+	if (color == White) {
+		if (board[y][x] == White || board[y][x] == WDamka) {
+			if (y!=7 && board[y+1][x] == None) return 1;
+			if (x!=0 && board[y][x-1] == None) return 1;
+			if (x!=7 && board[y][x+1] == None) return 1; 
+			return 0;
+		}
+		if (board[y][x] == WDamka) {
+			if (y!=0 && board[y-1][x] == None) return 1;
+		}
+		return 0;
+	} else {
+		if (board[y][x] == Black || board[y][x] == BDamka) {
+			if (y!=0 && board[y-1][x] == None) return 1;
+			if (x!=0 && board[y][x-1] == None) return 1;
+			if (x!=7 && board[y][x+1] == None) return 1; 
+			return 0;
+		}
+		if (board[y][x] == BDamka) {
+			if (y!=7 && board[y+1][x] == None) return 1;
+		}
+		return 0;
+	}
+}
+
+void game() {
+	// начальная инициализация доски;
+	if (ggs == GGBoardInit) {
+		for (int y=0; y<8; y++) {
+			for (int x=0; x<8; x++) {
+				if (y==1 || y==2) {
+					board[y][x] = White;
+					apply_color(x, y);
+				} else if (y==5 || y==6) {
+					board[y][x] = Black;
+					apply_color(x, y);
+				} else {
+					board[y][x] = None;
+					apply_color(x, y);
+				}
+				apply_select(x, y, 0);
+			}
+		}
+		ggs = GGStepWhite;
+	}
+
+	if (ggs == GGStepWhite) {
+		if (get_click() == MCBoard) {
+			if (board[click_y][click_x] == White || board[click_y][click_x] == WDamka) {
+				if (can_step(click_x, click_y, White)) {
+					apply_select(click_x, click_y, 1);
+					ggs = GGStepBlack;
+				}
+			}
+		}
+	}
+
+	if (ggs == GGStepBlack) {
+		if (get_click() == MCBoard) {
+			if (board[click_y][click_x] == Black || board[click_y][click_x] == BDamka) {
+				if (can_step(click_x, click_y, Black)) {
+					apply_select(click_x, click_y, 1);
+					ggs = GGStepWhite;
+				}
+			}
+		}
+	}
+/*	handle_keyboard();
+
+	if (NG_is_received == 0) {
+		get_command();
+		if (isNewCommand == 1) {
+			isNewCommand = 0;
+			if (getst != GETERR) {
+				if (comm == COMNG) {
+					NG_is_received = 1;
+				} else if (comm == COMC0) {
+					ggs = GGCONNECT;
+				}
+			} else {
+				error();
+			}
+		}
+	}
+
+	if (NG_is_sent == 1 && NG_is_received == 1) {
+		if (MyColor == White) MyColor = Black;
+		else MyColor = White;
+		ggs = GGBoardInit;
+	}*/
+
 }
