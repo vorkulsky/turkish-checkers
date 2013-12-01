@@ -24,7 +24,7 @@
 enum chip {None, White, Black, WDamka, BDamka};
 enum connect_send_status {CSSTART, C0PING, CxSEND};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
-enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGBoardInit, GGStepWhite, GGStepBlack};
+enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGBoardInit, GGStartStepWhite, GGStartStepBlack, GGStepWhite, GGStepBlack};
 enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
 enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX};
 enum mouse_click_status {MCNone, MCBoard};
@@ -35,6 +35,7 @@ void rectangle(int x1, int x2, int y1, int y2, byte color);
 void paint_empty_board();
 void debug_ini();
 void debug_print(byte* str, int size, byte color);
+void debug_print_byte(byte b, byte color);
 void mainloop();
 void gameloop();
 void send_str(byte* str, int size);
@@ -61,6 +62,11 @@ byte can_eat(byte x, byte y, chip color);
 byte can_move(byte x, byte y, chip color);
 byte anyone_can_eat(chip color);
 byte damka_can_eat(byte x, byte y, chip color);
+void step(chip color);
+byte do_step(byte x, byte y, chip color);
+byte do_eat(byte x, byte y, chip color);
+byte do_move(byte x, byte y, chip color);
+byte damka_do_move(byte x, byte y);
 
 byte Page;
 byte STR[64];
@@ -83,6 +89,10 @@ byte isNewCommand = 0;
 chip board[8][8];
 int click_x;
 int click_y;
+byte futureDamka;
+byte selected_x;
+byte selected_y;
+
 
 void main() {
 	Key_Ini();
@@ -228,15 +238,19 @@ void apply_color(byte x, byte y) {
 	int x2 = 43 - 7 + x*43;
 	int y1 = 8 + y*43;
 	int y2 = 43 - 7 + y*43;
+
 	Mouse_Hide();
 	rectangle(x1, x2, y1, y2, color);
 	Mouse_Show();
 }
 
 void apply_select(byte x, byte y, byte select) {
-	byte color;
-	if (select) color = 14;
-	else color = 0;
+	byte color = 0;
+	if (select) {
+		color = 14;
+		selected_x = x;
+		selected_y = y;
+	}
 	if (MyColor == White) {
 		x = x;
 		y = 7-y;
@@ -292,6 +306,11 @@ void debug_print_line(byte* line, int size, byte color) {
 		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
 	}
 	Mouse_Show();
+}
+
+void debug_print_byte(byte b, byte color) {
+	byte c = b + 48;
+	debug_print(&c, 1, color);
 }
 
 void debug_print(byte* str, int size, byte color) {
@@ -724,17 +743,22 @@ byte get_click() {
 			click_x = 7-x;
 			click_y = y;
 		}
+		return MCBoard;
 	}
-	return MCBoard;
 no_clc:
  	return MCNone;
 }
 
 byte can_step(byte x, byte y, chip color) {
+	debug_print("can_step", 8, 8);
 	if (can_eat(x, y, color)) return 1;
+	debug_print("not_can_eat", 11, 8);
 	if (can_move(x, y, color)) {
-		if (!anyone_can_eat(color))
+		debug_print("can_move", 8, 8);
+		if (!anyone_can_eat(color)) {
+			debug_print("!anyone_can_eat", 15, 8);
 			return 1;
+		}
 	}
 	return 0;
 }
@@ -751,9 +775,9 @@ byte can_eat(byte x, byte y, chip color) {
 		return 0;
 	} else {
 		if (board[y][x] == Black) {
-			if (y>1 && board[y-2][x] == None && (board[y-1][x] == Black || board[y-1][x] == BDamka)) return 1;
-			if (x>1 && board[y][x-2] == None && (board[y][x-1] == Black || board[y][x-1] == BDamka)) return 1;
-			if (x<6 && board[y][x+2] == None && (board[y][x+1] == Black || board[y][x+1] == BDamka)) return 1;
+			if (y>1 && board[y-2][x] == None && (board[y-1][x] == White || board[y-1][x] == WDamka)) return 1;
+			if (x>1 && board[y][x-2] == None && (board[y][x-1] == White || board[y][x-1] == WDamka)) return 1;
+			if (x<6 && board[y][x+2] == None && (board[y][x+1] == White || board[y][x+1] == WDamka)) return 1;
 		} else if (board[y][x] == BDamka) {
 			if (damka_can_eat(x, y, color)) return 1;
 		}
@@ -762,7 +786,7 @@ byte can_eat(byte x, byte y, chip color) {
 }
 
 byte damka_can_eat(byte x, byte y, chip color) {
-	chip usual, damka;
+	chip usual, damka; // Цвета противника
 	if (color == White) {
 		usual = Black;
 		damka = BDamka;
@@ -795,10 +819,14 @@ byte damka_can_eat(byte x, byte y, chip color) {
 }
 
 byte anyone_can_eat(chip color) {
-	for (int y=0; y<7; y++) {
-		for (int x=0; x<7; x++) {
-			if (can_eat(x, y, color))
+	for (byte y=0; y<7; y++) {
+		for (byte x=0; x<7; x++) {
+			if (can_eat(x, y, color)) {
+				debug_print("anyone_can_eat", 14, 8);
+				debug_print_byte(x, 8);
+				debug_print_byte(y, 8);
 				return 1;
+			}
 		}
 	}
 	return 0;
@@ -830,6 +858,81 @@ byte can_move(byte x, byte y, chip color) {
 	}
 }
 
+byte do_step(byte x, byte y, chip color) {
+	if (can_eat(selected_x, selected_y, color)) {
+		debug_print("can_eat", 7, 8);
+		if (do_eat(x, y, color))
+			return 2; // 2 - ход закончился рубкой.
+		return 0;
+	} 
+	debug_print("do_move", 7, 8);
+	return do_move(x, y, color);
+}
+
+byte do_eat(byte x, byte y, chip color) {
+	return 0;
+}
+
+byte do_move(byte x, byte y, chip color) {
+	int diff_x, diff_y;
+	diff_x = x - selected_x;
+	diff_y = y - selected_y;
+	if ((diff_x != 0 && diff_y != 0) || diff_x == diff_y) return 0;
+	if (board[selected_y][selected_x] == White || board[selected_y][selected_x] == Black) {
+		if (color == White || color == Black)
+			if (diff_x == 1 || diff_x == -1) return 1;
+		if (color == White && diff_y == 1) return 1;
+		if (color == Black && diff_y == -1) return 1;
+		return 0;
+	}
+	return damka_do_move(x, y);
+}
+
+byte damka_do_move(byte x, byte y) {
+	byte xi, yi;
+	yi = selected_y;
+	while (yi < y) if (board[++yi][x] != None) return 0;
+	yi = selected_y;
+	while (yi > y) if (board[--yi][x] != None) return 0;
+	xi = selected_x;
+	while (xi < x) if (board[yi][++xi] != None) return 0;
+	xi = selected_x;
+	while (xi > x) if (board[yi][--xi] != None) return 0;
+	return 1;
+}
+
+void step(chip color) {
+	chip damka;
+	if (color == White) damka = WDamka;
+	else damka = BDamka;
+
+	if (get_click() == MCBoard) {
+		if (board[click_y][click_x] == None) {
+			byte step_status = do_step(click_x, click_y, color);
+			byte ttt = step_status+48;
+			debug_print(&ttt, 1, 8);
+			if (step_status > 0) {
+				apply_select(selected_x, selected_y, 0);
+				chip old_chip = board[selected_y][selected_x];
+				board[selected_y][selected_x] = None;
+				apply_color(selected_x, selected_y);
+				board[click_y][click_x] = old_chip;
+				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - возможен повторный ход, т.к. предыдущий был рубкой.
+					apply_color(click_x, click_y);
+					apply_select(click_x, click_y, 1);
+					if ((color==White && click_y==7) || (color==Black && click_y==0)) futureDamka = 1;
+				} else {
+					if (board[click_y][click_x] != damka && (futureDamka || (color==White && click_y==7) || (color==Black && click_y==0)))
+						board[click_y][click_x] = damka;
+					apply_color(click_x, click_y);
+					if (color == White) ggs = GGStartStepBlack;
+					else ggs = GGStartStepWhite;
+				}
+			}
+		}
+	}
+}
+
 void game() {
 	// начальная инициализация доски;
 	if (ggs == GGBoardInit) {
@@ -848,30 +951,36 @@ void game() {
 				apply_select(x, y, 0);
 			}
 		}
-		ggs = GGStepWhite;
+		ggs = GGStartStepWhite;
 	}
 
-	if (ggs == GGStepWhite) {
+	if (ggs == GGStartStepWhite) {
 		if (get_click() == MCBoard) {
 			if (board[click_y][click_x] == White || board[click_y][click_x] == WDamka) {
 				if (can_step(click_x, click_y, White)) {
 					apply_select(click_x, click_y, 1);
+					futureDamka = 0;
+					ggs = GGStepWhite;
+				}
+			}
+		}
+	}
+
+	if (ggs == GGStartStepBlack) {
+		if (get_click() == MCBoard) {
+			if (board[click_y][click_x] == Black || board[click_y][click_x] == BDamka) {
+				if (can_step(click_x, click_y, Black)) {
+					apply_select(click_x, click_y, 1);
+					futureDamka = 0;
 					ggs = GGStepBlack;
 				}
 			}
 		}
 	}
 
-	if (ggs == GGStepBlack) {
-		if (get_click() == MCBoard) {
-			if (board[click_y][click_x] == Black || board[click_y][click_x] == BDamka) {
-				if (can_step(click_x, click_y, Black)) {
-					apply_select(click_x, click_y, 1);
-					ggs = GGStepWhite;
-				}
-			}
-		}
-	}
+	if (ggs == GGStepWhite) step(White);
+	if (ggs == GGStepBlack) step(Black);
+
 /*	handle_keyboard();
 
 	if (NG_is_received == 0) {
