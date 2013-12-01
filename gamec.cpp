@@ -68,6 +68,8 @@ byte do_step(byte x, byte y, chip color);
 byte do_eat(byte x, byte y, chip color);
 byte do_move(byte x, byte y, chip color);
 byte damka_do_move(byte x, byte y);
+void start_step(chip color);
+void board_init();
 
 byte Page;
 byte STR[64];
@@ -911,6 +913,25 @@ byte damka_do_move(byte x, byte y) {
 	return 1;
 }
 
+void board_init() {
+	for (int y=0; y<8; y++) {
+		for (int x=0; x<8; x++) {
+			if (y==1 || y==2) {
+				board[y][x] = White;
+				apply_color(x, y);
+			} else if (y==5 || y==6) {
+				board[y][x] = Black;
+				apply_color(x, y);
+			} else {
+				board[y][x] = None;
+				apply_color(x, y);
+			}
+			apply_select(x, y, 0);
+		}
+	}
+	ggs = GGStartStepWhite;
+}
+
 void step(chip color) {
 	chip damka;
 	if (color == White) damka = WDamka;
@@ -943,55 +964,40 @@ void step(chip color) {
 	}
 }
 
+void start_step(chip color) {
+	chip usual, damka;
+	global_game_status st;
+	if (color == White) {
+		usual = White;
+		damka = WDamka;
+		st = GGStepWhite;
+	} else {
+		usual = Black;
+		damka = BDamka;
+		st = GGStepBlack;
+	}
+
+	if (get_click() == MCBoard) {
+		if (board[click_y][click_x] == usual || board[click_y][click_x] == damka) {
+			if (can_step(click_x, click_y, usual)) {
+				apply_select(click_x, click_y, 1);
+				futureDamka = 0;
+				forbidden_direction = DNone;
+				ggs = st;
+			}
+		}
+	}
+}
+
 void game() {
-	// начальная инициализация доски;
-	if (ggs == GGBoardInit) {
-		for (int y=0; y<8; y++) {
-			for (int x=0; x<8; x++) {
-				if (y==1 || y==2) {
-					board[y][x] = White;
-					apply_color(x, y);
-				} else if (y==5 || y==6) {
-					board[y][x] = Black;
-					apply_color(x, y);
-				} else {
-					board[y][x] = None;
-					apply_color(x, y);
-				}
-				apply_select(x, y, 0);
-			}
-		}
-		ggs = GGStartStepWhite;
+	switch (ggs) {
+		case GGBoardInit: board_init(); break;
+		case GGStartStepWhite: start_step(White); break;
+		case GGStartStepBlack: start_step(Black); break;
+		case GGStepWhite: step(White); break;
+		case GGStepBlack: step(Black); break;
+		default: {}
 	}
-
-	if (ggs == GGStartStepWhite) {
-		if (get_click() == MCBoard) {
-			if (board[click_y][click_x] == White || board[click_y][click_x] == WDamka) {
-				if (can_step(click_x, click_y, White)) {
-					apply_select(click_x, click_y, 1);
-					futureDamka = 0;
-					forbidden_direction = DNone;
-					ggs = GGStepWhite;
-				}
-			}
-		}
-	}
-
-	if (ggs == GGStartStepBlack) {
-		if (get_click() == MCBoard) {
-			if (board[click_y][click_x] == Black || board[click_y][click_x] == BDamka) {
-				if (can_step(click_x, click_y, Black)) {
-					apply_select(click_x, click_y, 1);
-					futureDamka = 0;
-					forbidden_direction = DNone;
-					ggs = GGStepBlack;
-				}
-			}
-		}
-	}
-
-	if (ggs == GGStepWhite) step(White);
-	if (ggs == GGStepBlack) step(Black);
 
 /*	handle_keyboard();
 
