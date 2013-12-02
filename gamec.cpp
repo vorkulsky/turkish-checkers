@@ -74,10 +74,15 @@ byte damka_do_eat(byte x, byte y, chip color);
 byte usual_do_eat(byte x, byte y, chip color);
 void usual_eat(byte x, byte y);
 byte game_over();
+void write_hod(byte x, byte y);
+void formalize_hod();
 
 byte Page;
 byte STR[64];
 byte hishod[32];
+byte hishod_len;
+byte myhod[35];
+byte myhod_len;
 byte timer18 = 0;
 byte timer55 = 0;
 connect_send_status css = CSSTART;
@@ -90,7 +95,6 @@ byte NG_is_sent = 0;
 byte NG_is_received = 0;
 get_status getst = GETSTART;
 command comm;
-byte XLen;
 byte templen;
 byte isNewCommand = 0;
 chip board[8][8];
@@ -694,7 +698,7 @@ void get_automat(byte c) {
 		}
 		case GETX: {
 			if (c == '0' || c == '1') {
-				XLen = c - 49;
+				hishod_len = c - 49;
 				getst = GETXX;
 			} else {
 				getst = GETERR;
@@ -703,7 +707,7 @@ void get_automat(byte c) {
 		}
 		case GETXX: {
 			if (c >= '0' && c <= '9') {
-				XLen = XLen*10 + (c - 49);
+				hishod_len = hishod_len*10 + (c - 49);
 				templen = 0;
 				getst = GETLEN;
 			} else {
@@ -712,14 +716,14 @@ void get_automat(byte c) {
 			break;
 		}
 		case GETLEN: {
-			if (templen >= XLen*2) {
+			if (templen >= hishod_len*2) {
 				STR[0] = 'X';
-				STR[1] = XLen / 10 + 49;
-				STR[2] = XLen % 10 + 49;
-				for (int i=0; i< XLen*2; i++) {
+				STR[1] = hishod_len / 10 + 49;
+				STR[2] = hishod_len % 10 + 49;
+				for (int i=0; i< hishod_len*2; i++) {
 					STR[i+3] = hishod[i];
 				} 
-				debug_print(STR, 3+XLen*2, Dhis);
+				debug_print(STR, 3+hishod_len*2, Dhis);
 			} else {
 				hishod[templen] = c;
 				templen++;
@@ -1092,6 +1096,18 @@ byte game_over() {
 	return 0;
 }
 
+void write_hod(byte x, byte y) {
+	myhod[3 + myhod_len*2] = x + 65;
+	myhod[4 + myhod_len*2] = y + 49;
+	myhod_len++;
+}
+
+void formalize_hod() {
+	myhod[0] = 'X';
+	myhod[1] = 48 + myhod_len / 10;
+	myhod[2] = 48 + myhod_len % 10;
+}
+
 void board_init() {
 	for (int y=0; y<8; y++) {
 		for (int x=0; x<8; x++) {
@@ -1122,6 +1138,7 @@ void step(chip color) {
 			//byte ttt = step_status+48;
 			//debug_print(&ttt, 1, 8);
 			if (step_status > 0) {
+				write_hod(click_x, click_y);
 				apply_select(selected_x, selected_y, 0);
 				chip old_chip = board[selected_y][selected_x];
 				board[selected_y][selected_x] = None;
@@ -1135,6 +1152,8 @@ void step(chip color) {
 					if (futureDamka || (color == White && click_y == 7) || (color == Black && click_y == 0))
 						board[click_y][click_x] = damka;
 					apply_color(click_x, click_y);
+					formalize_hod();
+					debug_print(myhod, 3 + 2*myhod_len, Dmy);
 					forbidden_direction = DNone;
 					if (game_over()) {
 						ggs = GGNEW;
@@ -1169,6 +1188,8 @@ void start_step(chip color) {
 				apply_select(click_x, click_y, 1);
 				futureDamka = 0;
 				forbidden_direction = DNone;
+				myhod_len = 0;
+				write_hod(click_x, click_y);
 				ggs = st;
 			}
 		}
