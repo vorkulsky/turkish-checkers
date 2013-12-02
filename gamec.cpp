@@ -134,7 +134,7 @@ end_mainloop:
 
 void gameloop() {
 newgame:
-	debug_print("Новая игра", 10, 8);
+	debug_print("New game", 8, 8);
 	ggs = GGSTART;
 	timer18 = 0;
 	timer55 = 0;
@@ -277,7 +277,7 @@ void debug_ini() {
 	rectangle(386, 389, 0, 349, 8);
 }
 
-void debug_print_line(char* line, int size, byte color) {
+void debug_print_line(byte* line, int size, byte color) {
 	// Максимальная длина строки 29 символов
 	const byte left = 50;
 	const byte right = 79;
@@ -314,7 +314,7 @@ void debug_print_line(char* line, int size, byte color) {
 	Mouse_Show();
 }
 
-void debug_print_byte(char b, byte color) {
+void debug_print_byte(byte b, byte color) {
 	byte c = b + 48;
 	debug_print(&c, 1, color);
 }
@@ -766,25 +766,25 @@ byte can_step(byte x, byte y, chip color) {
 }
 
 byte can_eat(byte x, byte y, chip color) {
+	byte cell = board[y][x];
 	if (color == White) {
-		if (board[y][x] == White) {
+		if (cell == White) {
 			if (y<6 && board[y+2][x] == None && (board[y+1][x] == Black || board[y+1][x] == BDamka)) return 1;
 			if (x>1 && board[y][x-2] == None && (board[y][x-1] == Black || board[y][x-1] == BDamka)) return 1;
 			if (x<6 && board[y][x+2] == None && (board[y][x+1] == Black || board[y][x+1] == BDamka)) return 1;
-		} else if (board[y][x] == WDamka) {
-			if (damka_can_eat(x, y, color)) return 1;
+		} else if (cell == WDamka) {
+			return damka_can_eat(x, y, color);
 		}
-		return 0;
 	} else {
-		if (board[y][x] == Black) {
+		if (cell == Black) {
 			if (y>1 && board[y-2][x] == None && (board[y-1][x] == White || board[y-1][x] == WDamka)) return 1;
 			if (x>1 && board[y][x-2] == None && (board[y][x-1] == White || board[y][x-1] == WDamka)) return 1;
 			if (x<6 && board[y][x+2] == None && (board[y][x+1] == White || board[y][x+1] == WDamka)) return 1;
-		} else if (board[y][x] == BDamka) {
-			if (damka_can_eat(x, y, color)) return 1;
+		} else if (cell == BDamka) {
+			return damka_can_eat(x, y, color);
 		}
-		return 0;
 	}
+	return 0;
 }
 
 byte damka_can_eat(byte x, byte y, chip color) {
@@ -798,34 +798,38 @@ byte damka_can_eat(byte x, byte y, chip color) {
 	}
 	byte xi, yi;
 	if (forbidden_direction != DUp) {
-		yi = y;
-		while (yi<6) {
-			if (board[yi+2][x] != None) break;
-			if (board[yi+1][x] == usual || board[yi+1][x] == damka) return 1;
+		yi = y + 1;
+		while (yi < 7) {
+			byte cell = board[yi][x];
+			if ((cell == usual || cell == damka) && board[yi+1][x] == None) return 1;
+			if (cell != None) break;
 			yi++;
 		}
 	}
 	if (forbidden_direction != DDown) {
-		yi = y;
-		while (yi>1) {
-			if (board[yi-2][x] != None) break;
-			if (board[yi-1][x] == usual || board[yi-1][x] == damka) return 1;
+		yi = y - 1;
+		while (yi > 0) {
+			byte cell = board[yi][x];
+			if ((cell == usual || cell == damka) && board[yi-1][x] == None) return 1;
+			if (cell != None) break;
 			yi--;
 		}
 	}
 	if (forbidden_direction != DRight) {
-		xi = x;
-		while (xi<6) {
-			if (board[y][xi+2] != None) break;
-			if (board[y][xi+1] == usual || board[y][xi+1] == damka) return 1;
+		xi = x + 1;
+		while (xi < 7) {
+			byte cell = board[y][xi];
+			if ((cell == usual || cell == damka) && board[y][xi+1] == None) return 1;
+			if (cell != None) break;
 			xi++;
 		}
 	}
 	if (forbidden_direction != DLeft) {
-		xi = x;
-		while (xi>1) {
-			if (board[y][xi-2] != None) break;
-			if (board[y][xi-1] == usual || board[y][xi-1] == damka) return 1;
+		xi = x - 1;
+		while (xi > 0) {
+			byte cell = board[y][xi];
+			if ((cell == usual || cell == damka) && board[y][xi-1] == None) return 1;
+			if (cell != None) break;
 			xi--;
 		}
 	}
@@ -833,8 +837,8 @@ byte damka_can_eat(byte x, byte y, chip color) {
 }
 
 byte anyone_can_eat(chip color) {
-	for (byte y=0; y<7; y++)
-		for (byte x=0; x<7; x++)
+	for (byte y=0; y<8; y++)
+		for (byte x=0; x<8; x++)
 			if (can_eat(x, y, color))
 				return 1;
 	return 0;
@@ -883,6 +887,114 @@ byte do_eat(byte x, byte y, chip color) {
 }
 
 byte damka_do_eat(byte x, byte y, chip color) {
+	chip usual, damka; // Цвета противника
+	if (color == White) {
+		usual = Black;
+		damka = BDamka;
+	} else {
+		usual = White;
+		damka = WDamka;
+	}
+	byte xi, yi;
+	byte enemy_x, enemy_y;
+	byte enemy_count;
+
+	if (y > selected_y && x == selected_x && forbidden_direction != DUp) {
+		yi = selected_y + 1;
+		enemy_count = 0;
+		while (y > yi) {
+			byte cell = board[yi][x];
+			if (cell == None) {
+				yi++; continue;
+			}
+			if ((cell == usual || cell == damka) && enemy_count == 0) {
+				enemy_count = 1;
+				enemy_x = x; enemy_y = yi;
+				yi++; continue;
+			}
+			break;
+		}
+		if (yi == y && enemy_count == 1) {
+			forbidden_direction = DDown;
+			board[enemy_y][enemy_x] = None;
+			apply_color(enemy_x, enemy_y);
+			return 1;
+		}
+		return 0;
+	}
+
+	if (y < selected_y && x == selected_x && forbidden_direction != DDown) {
+		yi = selected_y - 1;
+		enemy_count = 0;
+		while (y < yi) {
+			byte cell = board[yi][x];
+			if (cell == None) {
+				yi--; continue;
+			}
+			if ((cell == usual || cell == damka) && enemy_count == 0) {
+				enemy_count = 1;
+				enemy_x = x; enemy_y = yi;
+				yi--; continue;
+			}
+			break;
+		}
+		if (yi == y && enemy_count == 1) {
+			forbidden_direction = DUp;
+			board[enemy_y][enemy_x] = None;
+			apply_color(enemy_x, enemy_y);
+			return 1;
+		}
+		return 0;
+	}
+
+	if (x > selected_x && y == selected_y && forbidden_direction != DRight) {
+		xi = selected_x + 1;
+		enemy_count = 0;
+		while (x > xi) {
+			byte cell = board[y][xi];
+			if (cell == None) {
+				xi++; continue;
+			}
+			if ((cell == usual || cell == damka) && enemy_count == 0) {
+				enemy_count = 1;
+				enemy_x = xi; enemy_y = y;
+				xi++; continue;
+			}
+			break;
+		}
+		if (xi == x && enemy_count == 1) {
+			forbidden_direction = DLeft;
+			board[enemy_y][enemy_x] = None;
+			apply_color(enemy_x, enemy_y);
+			return 1;
+		}
+		return 0;
+	}
+
+	if (x < selected_x && y == selected_y && forbidden_direction != DLeft) {
+		xi = selected_x - 1;
+		enemy_count = 0;
+		while (x < xi) {
+			byte cell = board[y][xi];
+			if (cell == None) {
+				xi--; continue;
+			}
+			if ((cell == usual || cell == damka) && enemy_count == 0) {
+				enemy_count = 1;
+				enemy_x = xi; enemy_y = y;
+				xi--; continue;
+			}
+			break;
+		}
+		if (xi == x && enemy_count == 1) {
+			forbidden_direction = DRight;
+			board[enemy_y][enemy_x] = None;
+			apply_color(enemy_x, enemy_y);
+			return 1;
+		}
+		return 0;
+	}
+
 	return 0;
 }
 
@@ -961,8 +1073,8 @@ void step(chip color) {
 	if (get_click() == MCBoard) {
 		if (board[click_y][click_x] == None) {
 			byte step_status = do_step(click_x, click_y, color);
-			byte ttt = step_status+48;
-			debug_print(&ttt, 1, 8);
+			//byte ttt = step_status+48;
+			//debug_print(&ttt, 1, 8);
 			if (step_status > 0) {
 				apply_select(selected_x, selected_y, 0);
 				chip old_chip = board[selected_y][selected_x];
@@ -974,9 +1086,10 @@ void step(chip color) {
 					apply_select(click_x, click_y, 1);
 					if ((color==White && click_y==7) || (color==Black && click_y==0)) futureDamka = 1;
 				} else {
-					if (board[click_y][click_x] != damka && (futureDamka || (color==White && click_y==7) || (color==Black && click_y==0)))
+					if (futureDamka || (color==White && click_y==7) || (color==Black && click_y==0))
 						board[click_y][click_x] = damka;
 					apply_color(click_x, click_y);
+					forbidden_direction = DNone;
 					if (color == White) ggs = GGStartStepBlack;
 					else ggs = GGStartStepWhite;
 				}
@@ -1000,7 +1113,7 @@ void start_step(chip color) {
 
 	if (get_click() == MCBoard) {
 		if (board[click_y][click_x] == usual || board[click_y][click_x] == damka) {
-			if (can_step(click_x, click_y, usual)) {
+			if (can_step(click_x, click_y, color)) {
 				apply_select(click_x, click_y, 1);
 				futureDamka = 0;
 				forbidden_direction = DNone;
