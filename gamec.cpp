@@ -76,6 +76,7 @@ void usual_eat(byte x, byte y);
 byte game_over();
 void write_hod(byte x, byte y);
 void formalize_hod();
+void new_game();
 
 byte Page;
 byte STR[64];
@@ -125,13 +126,12 @@ void main() {
 
 void mainloop() {
 connect:
-	MyColor = White;
-/*	MyColor = None;
+	MyColor = None;
 	while (MyColor == None) {
 		Key_Is_Esc();
 		asm jc end_mainloop
 		connect();
-	}*/
+	}
 	gameloop();
 	if (ggs == GGCONNECT) goto connect;
 end_mainloop:
@@ -147,14 +147,13 @@ newgame:
 	NG_is_received = 0;
 	getst = GETSTART;
 	isNewCommand = 0;
-	ggs = GGBoardInit;
 	while (1) {
 		Key_Is_Esc();
 		asm jc send_EX
-		//sendSS();
+		sendSS();
 		game();
 		if (ggs == GGNEW) goto newgame;
-		//if (ggs == GGCONNECT) goto end_gameloop;
+		if (ggs == GGCONNECT) goto end_gameloop;
 	}
 send_EX:
 	send_str("EX", 2);
@@ -235,7 +234,7 @@ void apply_color(byte x, byte y) {
 		case White: color = 8; break;
 		case WDamka: color = 15; break;
 		case Black: color = 1; break;
-		case BDamka: color = 11; break;
+		case BDamka: color = 3; break;
 		default: color = 0;
 	}
 	if (MyColor == White) {
@@ -368,7 +367,7 @@ byte random_gesture() {
 		int 1Ah
 		mov r, dl
 	}
-	byte random3 = r % 3;
+	byte random3 = r % 3 + 1;
 	return random3;
 }
 
@@ -413,7 +412,7 @@ void connect_send_automat() {
 		}
 		case CxSEND: {
 			STR[0] = 'C';
-			STR[1] = Cx + 49;
+			STR[1] = Cx + 48;
 			send_str("C0", 2);
 			debug_print("C0", 2, Dmy);
 			send_str(STR, 2);
@@ -501,9 +500,9 @@ void connect_get_automat(byte c) {
 
 void rockPaperScissors(byte c) {
 	cgs = CGEXIT;
-	HisCx = c - 49;
 	STR[0] = 'C';
-	STR[1] = HisCx + 49;
+	STR[1] = c;
+	HisCx = c - 48;
 	debug_print(STR, 2, Dhis);
 	if (Cx == HisCx) {
 		cgs = CGSTART;
@@ -522,7 +521,7 @@ void rockPaperScissors(byte c) {
 
 void sendSS() {
 	if (timer18 >= 18) {
-		debug_print("SS", 2, Dmy);
+		//debug_print("SS", 2, Dmy);
 		send_str("SS", 2);
 		timer18 = 0;
 	}
@@ -570,7 +569,7 @@ void get_command() {
 		Get_Chr();
 		asm jc no_char
 		asm mov c, al
-		debug_print(&c, 1, 8);
+		//debug_print(&c, 1, 8);
 		timer55 = 0;
 		get_automat(c);
 		if (getst == GETSTART || getst == GETERR) {
@@ -602,7 +601,7 @@ void get_automat(byte c) {
 		}
 		case GETS: {
 			if (c == 'S') {
-				debug_print("SS", 2, Dhis);
+				//debug_print("SS", 2, Dhis);
 				getst = GETNEXT;
 			} else {
 				getst = GETERR;
@@ -1196,20 +1195,10 @@ void start_step(chip color) {
 	}
 }
 
-void game() {
-	switch (ggs) {
-		case GGBoardInit: board_init(); break;
-		case GGStartStepWhite: start_step(White); break;
-		case GGStartStepBlack: start_step(Black); break;
-		case GGStepWhite: step(White); break;
-		case GGStepBlack: step(Black); break;
-		default: {}
-	}
-
-/*	handle_keyboard();
+void new_game() {
+	handle_keyboard();
 
 	if (NG_is_received == 0) {
-		get_command();
 		if (isNewCommand == 1) {
 			isNewCommand = 0;
 			if (getst != GETERR) {
@@ -1228,6 +1217,19 @@ void game() {
 		if (MyColor == White) MyColor = Black;
 		else MyColor = White;
 		ggs = GGBoardInit;
-	}*/
+	}
+}
 
+void game() {
+	get_command();
+
+	switch (ggs) {
+		case GGSTART: new_game(); break;
+		case GGBoardInit: board_init(); break;
+		case GGStartStepWhite: start_step(White); break;
+		case GGStartStepBlack: start_step(Black); break;
+		case GGStepWhite: step(White); break;
+		case GGStepBlack: step(Black); break;
+		default: {}
+	}
 }
