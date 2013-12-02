@@ -58,7 +58,7 @@ void get_automat(byte c);
 void apply_color(byte x, byte y);
 void apply_select(byte x, byte y, byte select);
 byte get_click();
-byte can_step(byte x, byte y, chip color); // color - æ¢¥â å®¤ïé¥£®.
+byte can_step(byte x, byte y, chip color); // color - Ñ†Ð²ÐµÑ‚ Ñ…Ð¾Ð´ÑÑ‰ÐµÐ³Ð¾.
 byte can_eat(byte x, byte y, chip color);
 byte can_move(byte x, byte y, chip color);
 byte anyone_can_eat(chip color);
@@ -134,7 +134,7 @@ end_mainloop:
 
 void gameloop() {
 newgame:
-	debug_print("®¢ ï ¨£à ", 10, 8);
+	debug_print("ÐÐ¾Ð²Ð°Ñ Ð¸Ð³Ñ€Ð°", 10, 8);
 	ggs = GGSTART;
 	timer18 = 0;
 	timer55 = 0;
@@ -158,7 +158,7 @@ end_gameloop:
 }
 
 void graph_ini() {
-	// ¥à¥å®¤ ¢ 10h £à ä¨ç¥áª¨© à¥¦¨¬
+	// ÐŸÐµÑ€ÐµÑ…Ð¾Ð´ Ð² 10h Ð³Ñ€Ð°Ñ„Ð¸Ñ‡ÐµÑÐºÐ¸Ð¹ Ñ€ÐµÐ¶Ð¸Ð¼
 	asm {
 		mov ah, 00h
 		mov al, 10h
@@ -170,7 +170,7 @@ void graph_ini() {
 }
 
 void graph_rst() {
-	// ‚®§¢à é¥­¨¥ áâ ­¤ àâ­®£® ¢¨¤¥®-à¥¦¨¬ 	
+	// Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰ÐµÐ½Ð¸Ðµ ÑÑ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð¾Ð³Ð¾ Ð²Ð¸Ð´ÐµÐ¾-Ñ€ÐµÐ¶Ð¸Ð¼Ð°	
 	asm {
 		mov ah, 00h
 		mov al, 3h
@@ -199,7 +199,7 @@ void paint_empty_board() {
 	byte color = 6;
 
 	int x1, x2, y1, y2;
-	//  áç¥àç¨¢ ¥¬ ¯® ¢¥àâ¨ª «¨
+	// Ð Ð°ÑÑ‡ÐµÑ€Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð¿Ð¾ Ð²ÐµÑ€Ñ‚Ð¸ÐºÐ°Ð»Ð¸
 	y1 = 0;
 	y2 = 345;
 	x1 = 0;
@@ -210,7 +210,7 @@ void paint_empty_board() {
 		 x2 += 43;
 	}
 
-	//  áç¥àç¨¢ ¥¬ ¯® £®à¨§®­â «¨
+	// Ð Ð°ÑÑ‡ÐµÑ€Ñ‡Ð¸Ð²Ð°ÐµÐ¼ Ð¿Ð¾ Ð³Ð¾Ñ€Ð¸Ð·Ð¾Ð½Ñ‚Ð°Ð»Ð¸
 	y1 = 0;
 	y2 = y1 + 1;
 	x1 = 0;
@@ -278,7 +278,7 @@ void debug_ini() {
 }
 
 void debug_print_line(char* line, int size, byte color) {
-	// Œ ªá¨¬ «ì­ ï ¤«¨­  áâà®ª¨ 29 á¨¬¢®«®¢
+	// ÐœÐ°ÐºÑÐ¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð»Ð¸Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐ¸ 29 ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð²
 	const byte left = 50;
 	const byte right = 79;
 	const byte up = 0;
@@ -288,7 +288,7 @@ void debug_print_line(char* line, int size, byte color) {
 	Mouse_Hide();
 	asm {
 		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
-	// à®ªàãâª  ­  ®¤­ã áâà®ªã ¢¢¥àå ¯¥à¥¤ ¯¥ç âìî ®ç¥à¥¤­®©
+	// ÐŸÑ€Ð¾ÐºÑ€ÑƒÑ‚ÐºÐ° Ð½Ð° Ð¾Ð´Ð½Ñƒ ÑÑ‚Ñ€Ð¾ÐºÑƒ Ð²Ð²ÐµÑ€Ñ… Ð¿ÐµÑ€ÐµÐ´ Ð¿ÐµÑ‡Ð°Ñ‚ÑŒÑŽ Ð¾Ñ‡ÐµÑ€ÐµÐ´Ð½Ð¾Ð¹
 		mov ah, 6
 		mov al, 1
 		mov bx, 0000h
@@ -297,7 +297,7 @@ void debug_print_line(char* line, int size, byte color) {
 		mov dh, down
 		mov dl, right
 		int 10h
-	// ¥ç âì «¨­¨¨
+	// ÐŸÐµÑ‡Ð°Ñ‚ÑŒ Ð»Ð¸Ð½Ð¸Ð¸
 		mov ah, 13h
 		mov al, 0
 		mov bh, Page
@@ -320,7 +320,7 @@ void debug_print_byte(char b, byte color) {
 }
 
 void debug_print(byte* str, int size, byte color) {
-	// 29 - ¬ ªá¨¬ «ì­®¥ ª«¨ç¥áâ¢® á¨¬¢®«®¢, ¯¥ç â ¥¬®¥ ­  ®¤­®© áâà®ª¥
+	// 29 - Ð¼Ð°ÐºÑÐ¸Ð¼Ð°Ð»ÑŒÐ½Ð¾Ðµ ÐºÐ»Ð¸Ñ‡ÐµÑÑ‚Ð²Ð¾ ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð², Ð¿ÐµÑ‡Ð°Ñ‚Ð°ÐµÐ¼Ð¾Ðµ Ð½Ð° Ð¾Ð´Ð½Ð¾Ð¹ ÑÑ‚Ñ€Ð¾ÐºÐµ
 	while (size > 0) {
 		int part = size <= 29 ? size : 29;
 		debug_print_line(str, part, color);
@@ -368,10 +368,10 @@ byte random_gesture() {
 }
 
 void connect() {
-	// Žâ¯à ¢ª 
+	// ÐžÑ‚Ð¿Ñ€Ð°Ð²ÐºÐ°
 	connect_send_automat();
 
-	// ®«ãç¥­¨¥
+	// ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ
 	byte c;
 	Get_Chr();
 	asm jc no_char
@@ -392,7 +392,7 @@ void connect_send_automat() {
 		case CSSTART: {
 			timer18 = 0;
 			css = C0PING;
-			debug_print("‘â àâ", 5, 8);
+			debug_print("Start", 5, 8);
 			send_str("C0", 2);
 			debug_print("C0", 2, Dmy);
 			break;
@@ -413,7 +413,7 @@ void connect_send_automat() {
 			debug_print("C0", 2, Dmy);
 			send_str(STR, 2);
 			debug_print(STR, 2, Dmy);
-			// …á«¨ ç¥à¥§ 18 ­¥ ¡ã¤¥â ®â¢¥â­®£® Cx, ¨¤¥¬ ­  ­ ç «®.
+			// Ð•ÑÐ»Ð¸ Ñ‡ÐµÑ€ÐµÐ· 18 Ð½Ðµ Ð±ÑƒÐ´ÐµÑ‚ Ð¾Ñ‚Ð²ÐµÑ‚Ð½Ð¾Ð³Ð¾ Cx, Ð¸Ð´ÐµÐ¼ Ð½Ð° Ð½Ð°Ñ‡Ð°Ð»Ð¾.
 			timer18 = 0;
 			css = C0PING;
 			break;
@@ -506,7 +506,7 @@ void rockPaperScissors(byte c) {
 		MyColor = None;
 	} else {
 		byte cnb = Cx * 10 + HisCx;
-		// ¥à¢ ï æ¨äà  - ï. “ ¯®¡¥¤¨â¥«ï ç¥à­ë©.
+		// ÐŸÐµÑ€Ð²Ð°Ñ Ñ†Ð¸Ñ„Ñ€Ð° - Ñ. Ð£ Ð¿Ð¾Ð±ÐµÐ´Ð¸Ñ‚ÐµÐ»Ñ Ñ‡ÐµÑ€Ð½Ñ‹Ð¹.
 		if (cnb == 12 || cnb == 23 || cnb == 31) {
 			MyColor = Black;
 		} else {
@@ -788,7 +788,7 @@ byte can_eat(byte x, byte y, chip color) {
 }
 
 byte damka_can_eat(byte x, byte y, chip color) {
-	chip usual, damka; // –¢¥â  ¯à®â¨¢­¨ª 
+	chip usual, damka; // Ð¦Ð²ÐµÑ‚Ð° Ð¿Ñ€Ð¾Ñ‚Ð¸Ð²Ð½Ð¸ÐºÐ°
 	if (color == White) {
 		usual = Black;
 		damka = BDamka;
@@ -869,7 +869,7 @@ byte can_move(byte x, byte y, chip color) {
 byte do_step(byte x, byte y, chip color) {
 	if (can_eat(selected_x, selected_y, color)) {
 		if (do_eat(x, y, color))
-			return 2; // 2 - å®¤ § ª®­ç¨«áï àã¡ª®©.
+			return 2; // 2 - Ñ…Ð¾Ð´ Ð·Ð°ÐºÐ¾Ð½Ñ‡Ð¸Ð»ÑÑ Ñ€ÑƒÐ±ÐºÐ¾Ð¹.
 		return 0;
 	} 
 	return do_move(x, y, color);
@@ -969,7 +969,7 @@ void step(chip color) {
 				board[selected_y][selected_x] = None;
 				apply_color(selected_x, selected_y);
 				board[click_y][click_x] = old_chip;
-				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - ¢®§¬®¦¥­ ¯®¢â®à­ë© å®¤, â.ª. ¯à¥¤ë¤ãé¨© ¡ë« àã¡ª®©.
+				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - Ð²Ð¾Ð·Ð¼Ð¾Ð¶ÐµÐ½ Ð¿Ð¾Ð²Ñ‚Ð¾Ñ€Ð½Ñ‹Ð¹ Ñ…Ð¾Ð´, Ñ‚.Ðº. Ð¿Ñ€ÐµÐ´Ñ‹Ð´ÑƒÑ‰Ð¸Ð¹ Ð±Ñ‹Ð» Ñ€ÑƒÐ±ÐºÐ¾Ð¹.
 					apply_color(click_x, click_y);
 					apply_select(click_x, click_y, 1);
 					if ((color==White && click_y==7) || (color==Black && click_y==0)) futureDamka = 1;
