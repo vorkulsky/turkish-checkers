@@ -73,6 +73,7 @@ void board_init();
 byte damka_do_eat(byte x, byte y, chip color);
 byte usual_do_eat(byte x, byte y, chip color);
 void usual_eat(byte x, byte y);
+byte game_over();
 
 byte Page;
 byte STR[64];
@@ -148,7 +149,7 @@ newgame:
 		asm jc send_EX
 		//sendSS();
 		game();
-		//if (ggs == GGNEW) goto newgame;
+		if (ggs == GGNEW) goto newgame;
 		//if (ggs == GGCONNECT) goto end_gameloop;
 	}
 send_EX:
@@ -1046,6 +1047,51 @@ byte damka_do_move(byte x, byte y) {
 	return 1;
 }
 
+byte game_over() {
+	byte count_white = 0;
+	byte count_black = 0;
+	byte count_wdamka = 0;
+	byte count_bdamka = 0;
+	byte can_move_white = 0;
+	byte can_move_black = 0;
+	for (byte y=0; y<8; y++)
+		for (byte x=0; x<8; x++) {
+			byte cell = board[y][x];
+			switch (cell) {
+				case White:
+					count_white++;
+					if (!can_move_white) can_move_white = can_move(x, y, White);
+					break;
+				case Black:
+					count_black++;
+					if (!can_move_black) can_move_black = can_move(x, y, Black);
+					break;
+				case WDamka:
+					count_wdamka++;
+					if (!can_move_white) can_move_white = can_move(x, y, White);
+					break;
+				case BDamka:
+					count_bdamka++;
+					if (!can_move_black) can_move_black = can_move(x, y, Black);
+					break;
+				default: {}
+			}
+		}
+	if (count_black + count_bdamka == 0 || !can_move_black || (!count_wdamka && !count_bdamka && count_black == 1 && count_white > 1)) {
+		debug_print("White win!", 10, 4);
+		return 1;
+	}
+	if (count_white + count_wdamka == 0 || !can_move_white || (!count_wdamka && !count_bdamka && count_white == 1 && count_black > 1)) {
+		debug_print("Black win!", 10, 4);
+		return 1;
+	}
+	if (!count_white && !count_black && count_wdamka == 1 && count_bdamka == 1) {
+		debug_print("Drawn game!", 11, 4);
+		return 1;
+	}
+	return 0;
+}
+
 void board_init() {
 	for (int y=0; y<8; y++) {
 		for (int x=0; x<8; x++) {
@@ -1084,14 +1130,20 @@ void step(chip color) {
 				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - возможен повторный ход, т.к. предыдущий был рубкой.
 					apply_color(click_x, click_y);
 					apply_select(click_x, click_y, 1);
-					if ((color==White && click_y==7) || (color==Black && click_y==0)) futureDamka = 1;
+					if ((color == White && click_y == 7) || (color == Black && click_y == 0)) futureDamka = 1;
 				} else {
-					if (futureDamka || (color==White && click_y==7) || (color==Black && click_y==0))
+					if (futureDamka || (color == White && click_y == 7) || (color == Black && click_y == 0))
 						board[click_y][click_x] = damka;
 					apply_color(click_x, click_y);
 					forbidden_direction = DNone;
-					if (color == White) ggs = GGStartStepBlack;
-					else ggs = GGStartStepWhite;
+					if (game_over()) {
+						ggs = GGNEW;
+						if (MyColor == White) MyColor = Black;
+						else MyColor = White;
+					} else {
+						if (color == White) ggs = GGStartStepBlack;
+						else ggs = GGStartStepWhite;
+					}
 				}
 			}
 		}
