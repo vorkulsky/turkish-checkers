@@ -17,6 +17,7 @@
 	extern "C" Mouse_Hide();
 	extern "C" Mouse_Show();
 	extern "C" Mouse_Clc();
+	extern "C" Mouse_Clc_Restart();
 // timer.asm
 	extern "C" Timer_Ini();
 	extern "C" Timer_Rst();
@@ -26,7 +27,7 @@ enum connect_send_status {CSSTART, C0PING, CxSEND};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
 enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGBoardInit, GGStartStepWhite, GGStartStepBlack, GGStepWhite, GGStepBlack};
 enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
-enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX};
+enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX, COMX};
 enum mouse_click_status {MCNone, MCBoard};
 enum direction {DNone, DLeft, DRight, DUp, DDown};
 
@@ -69,6 +70,8 @@ byte do_eat(byte x, byte y, chip color);
 byte do_move(byte x, byte y, chip color);
 byte damka_do_move(byte x, byte y);
 void start_step(chip color);
+void start_his_step();
+void start_my_step();
 void board_init();
 byte damka_do_eat(byte x, byte y, chip color);
 byte usual_do_eat(byte x, byte y, chip color);
@@ -77,11 +80,13 @@ byte game_over();
 void write_hod(byte x, byte y);
 void formalize_hod();
 void new_game();
+void his_step();
 
 byte Page;
 byte STR[64];
-byte hishod[32];
+byte hishod[35];
 byte hishod_len;
+byte hishod_part;
 byte myhod[35];
 byte myhod_len;
 byte timer18 = 0;
@@ -91,6 +96,7 @@ connect_get_status cgs = CGSTART;
 byte Cx;
 byte HisCx;
 chip MyColor = None;
+chip HisColor = None;
 global_game_status ggs = GGCONNECT;
 byte NG_is_sent = 0;
 byte NG_is_received = 0;
@@ -396,7 +402,7 @@ void connect_send_automat() {
 		case CSSTART: {
 			timer18 = 0;
 			css = C0PING;
-			debug_print("Start", 5, 8);
+			debug_print("Connect", 7, 8);
 			send_str("C0", 2);
 			debug_print("C0", 2, Dmy);
 			break;
@@ -697,7 +703,7 @@ void get_automat(byte c) {
 		}
 		case GETX: {
 			if (c == '0' || c == '1') {
-				hishod_len = c - 49;
+				hishod_len = c - 48;
 				getst = GETXX;
 			} else {
 				getst = GETERR;
@@ -706,7 +712,7 @@ void get_automat(byte c) {
 		}
 		case GETXX: {
 			if (c >= '0' && c <= '9') {
-				hishod_len = hishod_len*10 + (c - 49);
+				hishod_len = hishod_len*10 + (c - 48);
 				templen = 0;
 				getst = GETLEN;
 			} else {
@@ -715,17 +721,15 @@ void get_automat(byte c) {
 			break;
 		}
 		case GETLEN: {
+			hishod[templen+3] = c;
+			templen++;
 			if (templen >= hishod_len*2) {
-				STR[0] = 'X';
-				STR[1] = hishod_len / 10 + 49;
-				STR[2] = hishod_len % 10 + 49;
-				for (int i=0; i< hishod_len*2; i++) {
-					STR[i+3] = hishod[i];
-				} 
-				debug_print(STR, 3+hishod_len*2, Dhis);
-			} else {
-				hishod[templen] = c;
-				templen++;
+				hishod[0] = 'X';
+				hishod[1] = hishod_len / 10 + 48;
+				hishod[2] = hishod_len % 10 + 48;
+				debug_print(hishod, 3+hishod_len*2, Dhis);
+				comm = COMX;
+				getst = GETSTART;
 			}
 			break;
 		}
@@ -1123,6 +1127,7 @@ void board_init() {
 			apply_select(x, y, 0);
 		}
 	}
+	Mouse_Clc_Restart();
 	ggs = GGStartStepWhite;
 }
 
@@ -1134,8 +1139,6 @@ void step(chip color) {
 	if (get_click() == MCBoard) {
 		if (board[click_y][click_x] == None) {
 			byte step_status = do_step(click_x, click_y, color);
-			//byte ttt = step_status+48;
-			//debug_print(&ttt, 1, 8);
 			if (step_status > 0) {
 				write_hod(click_x, click_y);
 				apply_select(selected_x, selected_y, 0);
@@ -1153,11 +1156,10 @@ void step(chip color) {
 					apply_color(click_x, click_y);
 					formalize_hod();
 					debug_print(myhod, 3 + 2*myhod_len, Dmy);
+					send_str(myhod, 3 + 2*myhod_len);
 					forbidden_direction = DNone;
 					if (game_over()) {
 						ggs = GGNEW;
-						if (MyColor == White) MyColor = Black;
-						else MyColor = White;
 					} else {
 						if (color == White) ggs = GGStartStepBlack;
 						else ggs = GGStartStepWhite;
@@ -1168,10 +1170,65 @@ void step(chip color) {
 	}
 }
 
-void start_step(chip color) {
+void his_step() {
+	chip damka;
+	if (HisColor == White) damka = WDamka;
+	else damka = BDamka;
+
+	click_x = hishod[3 + 2*hishod_part] - 65;
+	click_y = hishod[4 + 2*hishod_part] - 49;
+	hishod_part++;
+
+	if (board[click_y][click_x] == None) {
+		byte step_status = do_step(click_x, click_y, HisColor);
+		if (step_status > 0) {
+			apply_select(selected_x, selected_y, 0);
+			chip old_chip = board[selected_y][selected_x];
+			board[selected_y][selected_x] = None;
+			apply_color(selected_x, selected_y);
+			board[click_y][click_x] = old_chip;
+			if (step_status == 2 && can_eat(click_x, click_y, HisColor)) { // 2 - возможен повторный ход, т.к. предыдущий был рубкой.
+				apply_color(click_x, click_y);
+				apply_select(click_x, click_y, 1);
+				if ((HisColor == White && click_y == 7) || (HisColor == Black && click_y == 0)) futureDamka = 1;
+				if (hishod_part < hishod_len) {
+					his_step();
+				} else {
+					debug_print_line("his_step error4", 15, 6);
+					error();
+				}
+			} else {
+				if (futureDamka || (HisColor == White && click_y == 7) || (HisColor == Black && click_y == 0))
+					board[click_y][click_x] = damka;
+				apply_color(click_x, click_y);
+				forbidden_direction = DNone;
+				if (hishod_part == hishod_len) {
+					if (game_over()) {
+						ggs = GGNEW;
+					} else {
+						if (HisColor == White) ggs = GGStartStepBlack;
+						else ggs = GGStartStepWhite;
+					}
+					Mouse_Clc_Restart();
+				} else {
+					debug_print_line("his_step error3", 15, 6);
+					error();
+				}
+			}
+		} else {
+			debug_print_line("his_step error2", 15, 6);
+			error();
+		}
+	} else {
+		debug_print_line("his_step error1", 15, 6);
+		error();
+	}
+}
+
+void start_my_step() {
 	chip usual, damka;
 	global_game_status st;
-	if (color == White) {
+	if (MyColor == White) {
 		usual = White;
 		damka = WDamka;
 		st = GGStepWhite;
@@ -1183,7 +1240,7 @@ void start_step(chip color) {
 
 	if (get_click() == MCBoard) {
 		if (board[click_y][click_x] == usual || board[click_y][click_x] == damka) {
-			if (can_step(click_x, click_y, color)) {
+			if (can_step(click_x, click_y, MyColor)) {
 				apply_select(click_x, click_y, 1);
 				futureDamka = 0;
 				forbidden_direction = DNone;
@@ -1193,6 +1250,48 @@ void start_step(chip color) {
 			}
 		}
 	}
+}
+
+void start_his_step() {
+	if (comm != COMX || isNewCommand != 1) return;
+	isNewCommand = 0;
+
+	chip usual, damka;
+	global_game_status st;
+	if (HisColor == White) {
+		usual = White;
+		damka = WDamka;
+	} else {
+		usual = Black;
+		damka = BDamka;
+	}
+
+	click_x = hishod[3] - 65;
+	click_y = hishod[4] - 49;
+	hishod_part = 1;
+
+	if (board[click_y][click_x] == usual || board[click_y][click_x] == damka) {
+		if (can_step(click_x, click_y, HisColor)) {
+			apply_select(click_x, click_y, 1);
+			futureDamka = 0;
+			forbidden_direction = DNone;
+			his_step();
+		} else {
+			debug_print_line("start_his_step error2", 21, 6);
+			error();
+		}
+	} else {
+		debug_print("start_his_step error1", 21, 6);
+		debug_print_byte(click_x, 6);
+		debug_print_byte(click_y, 6);
+		debug_print_byte(board[click_y][click_x] + 48, 6);
+		error();
+	}
+}
+
+void start_step(chip color) {
+	if (color == MyColor) start_my_step();
+	else start_his_step();
 }
 
 void new_game() {
@@ -1214,8 +1313,8 @@ void new_game() {
 	}
 
 	if (NG_is_sent == 1 && NG_is_received == 1) {
-		if (MyColor == White) MyColor = Black;
-		else MyColor = White;
+		if (MyColor == White) {MyColor = Black; HisColor = White;}
+		else {MyColor = White; HisColor = Black;}
 		ggs = GGBoardInit;
 	}
 }

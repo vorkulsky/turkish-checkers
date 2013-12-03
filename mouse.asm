@@ -4,6 +4,7 @@
 	public Mouse_Ini
 	public Mouse_Rst
 	public Mouse_Clc
+	public Mouse_Clc_Restart
 	public Mouse_Show
 	public Mouse_Hide
 org 5h
@@ -49,6 +50,11 @@ Mouse_Clc proc near
 	clc ; CF=0
 	ret
 Mouse_Clc endp
+
+Mouse_Clc_Restart proc near
+	mov lb, 0
+	ret
+Mouse_Clc_Restart endp
 
 Mouse_Show proc near
 	push ax
