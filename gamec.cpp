@@ -82,6 +82,8 @@ void write_hod(byte x, byte y);
 void formalize_hod();
 void new_game();
 void his_step();
+void circle(int x1, int y1, int d, byte color);
+void point(int x, int y, byte color);
 
 byte Page;
 byte STR[64];
@@ -198,16 +200,19 @@ void graph_rst() {
 void rectangle(int x1, int x2, int y1, int y2, byte color) {
 	for (int i=y1; i<=y2; i++) {
 		for (int j=x1; j<=x2; j++) {
-			asm {
-				mov ah, 0ch
-				mov al, color
-				mov cx, j
-				mov dx, i
-				mov bh, Page
-				int 10h
-			}
-		
+			point(j, i, color);
 		}
+	}
+}
+
+void point(int x, int y, byte color) {
+	asm {
+		mov ah, 0ch
+		mov al, color
+		mov cx, x
+		mov dx, y
+		mov bh, Page
+		int 10h
 	}
 }
 
@@ -222,9 +227,9 @@ void paint_empty_board() {
 	x1 = 0;
 	x2 = x1 + 1;
 	for (int i=0; i<=8; i++) {
-		 rectangle(x1, x2, y1, y2, color);
-		 x1 += 43;
-		 x2 += 43;
+		rectangle(x1, x2, y1, y2, color);
+		x1 += 43;
+		x2 += 43;
 	}
 
 	// Расчерчиваем по горизонтали
@@ -233,9 +238,9 @@ void paint_empty_board() {
 	x1 = 0;
 	x2 = 345;
 	for (int j=0; j<=8; j++) {
-		 rectangle(x1, x2, y1, y2, color);
-		 y1 += 43;
-		 y2 += 43;
+		rectangle(x1, x2, y1, y2, color);
+		y1 += 43;
+		y2 += 43;
 	}
 
 	Mouse_Show();
@@ -273,14 +278,24 @@ void apply_color(byte x, byte y) {
 	} else {
 		x = 7-x;
 	}
-	int x1 = 8 + x*43;
-	int x2 = 43 - 7 + x*43;
-	int y1 = 8 + y*43;
-	int y2 = 43 - 7 + y*43;
 
 	Mouse_Hide();
-	rectangle(x1, x2, y1, y2, color);
+	circle(8 + x*43, 8 + y*43, 29, color);
 	Mouse_Show();
+}
+
+void circle(int x1, int y1, int d, byte color) {
+	int r = d/2;
+	for (int y=0; y<=r; y++) {
+		for (int x=0; x<=r; x++) {
+			if ((x-r)*(x-r)+(y-r)*(y-r)<r*r) {
+				point(x1+x, y1+y, color);
+				point(x1+d-x, y1+y, color);
+				point(x1+x, y1+d-y, color);
+				point(x1+d-x, y1+d-y, color);
+			}
+		}
+	}
 }
 
 void apply_select(byte x, byte y, byte select) {
