@@ -25,16 +25,18 @@
 enum chip {None, White, Black, WDamka, BDamka};
 enum connect_send_status {CSSTART, C0PING, CxSEND};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
-enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGBoardInit, GGStartStepWhite, GGStartStepBlack, GGStepWhite, GGStepBlack};
+enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGStartStepWhite, GGStartStepBlack, GGStepWhite, GGStepBlack};
 enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
 enum command {COMC0, COMCx, COMNG, COMD0, COMD2, COMD3, COMFF, COMEX, COMX};
-enum mouse_click_status {MCNone, MCBoard};
+enum mouse_click_status {MCNone, MCBoard, MCNG, MCD2, MCD3, MCFF};
 enum direction {DNone, DLeft, DRight, DUp, DDown};
 
 void graph_ini();
 void graph_rst();
 void rectangle(int x1, int x2, int y1, int y2, byte color);
 void paint_empty_board();
+void paint_buttons();
+void write_line(byte* line, int size, byte writex, byte writey, byte color);
 void debug_ini();
 void debug_print(byte* str, int size, byte color);
 void debug_print_byte(byte b, byte color);
@@ -52,13 +54,12 @@ void rockPaperScissors(byte c);
 void sendSS();
 void error();
 void skip_chat();
-void handle_keyboard();
 void ng_automat();
 void get_command();
 void get_automat(byte c);
 void apply_color(byte x, byte y);
 void apply_select(byte x, byte y, byte select);
-byte get_click();
+mouse_click_status get_click();
 byte can_step(byte x, byte y, chip color); // color - цвет ходящего.
 byte can_eat(byte x, byte y, chip color);
 byte can_move(byte x, byte y, chip color);
@@ -69,7 +70,7 @@ byte do_step(byte x, byte y, chip color);
 byte do_eat(byte x, byte y, chip color);
 byte do_move(byte x, byte y, chip color);
 byte damka_do_move(byte x, byte y);
-void start_step(chip color);
+void start_step(chip color, chip player);
 void start_his_step();
 void start_my_step();
 void board_init();
@@ -111,12 +112,16 @@ byte futureDamka;
 byte selected_x;
 byte selected_y;
 direction forbidden_direction;
+mouse_click_status mc;
+byte drawn_proposed_by_me;
+byte drawn_proposed_by_him;
 
 void main() {
 	Key_Ini();
 	graph_ini();
 	Mouse_Ini();
 	paint_empty_board();
+	paint_buttons();
 	debug_ini();
 	Ser_Ini();
 	timer_ini();
@@ -153,6 +158,8 @@ newgame:
 	NG_is_received = 0;
 	getst = GETSTART;
 	isNewCommand = 0;
+	drawn_proposed_by_me = 0;
+	drawn_proposed_by_him = 0;
 	while (1) {
 		Key_Is_Esc();
 		asm jc send_EX
@@ -234,6 +241,24 @@ void paint_empty_board() {
 	Mouse_Show();
 }
 
+void paint_buttons() {
+	Mouse_Hide();
+	const byte writex = 45;
+	const byte writey = 5;
+	const byte color = 7;
+	const int size = 2;
+	byte* line = "NGD2D3FF";
+	for (int i=0; i<8; i+=2) {
+		const int y_step = 28;
+		rectangle(354, 379, 52+y_step*i, 52+y_step*i+2, 8);
+		rectangle(354, 379, 102+y_step*i-2, 102+y_step*i, 8);
+		rectangle(354, 354+2, 52+y_step*i, 102+y_step*i, 8);
+		rectangle(379-2, 379, 52+y_step*i, 102+y_step*i, 8);
+		write_line(line+i, size, writex, writey+2*i, color);
+	}
+	Mouse_Show();
+}
+
 void apply_color(byte x, byte y) {
 	byte color;
 	switch (board[y][x]) {
@@ -244,11 +269,9 @@ void apply_color(byte x, byte y) {
 		default: color = 0;
 	}
 	if (MyColor == White) {
-		x = x;
 		y = 7-y;
 	} else {
 		x = 7-x;
-		y = y;
 	}
 	int x1 = 8 + x*43;
 	int x2 = 43 - 7 + x*43;
@@ -268,11 +291,9 @@ void apply_select(byte x, byte y, byte select) {
 		selected_y = y;
 	}
 	if (MyColor == White) {
-		x = x;
 		y = 7-y;
 	} else {
 		x = 7-x;
-		y = y;
 	}
 	int x1 = 43 - 5 + x*43;
 	int x2 = 43 - 2 + x*43;
@@ -307,7 +328,15 @@ void debug_print_line(byte* line, int size, byte color) {
 		mov dh, down
 		mov dl, right
 		int 10h
-	// Печать линии
+		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
+	}
+	write_line(line, size, writex, writey, color);
+	Mouse_Show();
+}
+
+void write_line(byte* line, int size, byte writex, byte writey, byte color) {
+	asm {
+		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
 		mov ah, 13h
 		mov al, 0
 		mov bh, Page
@@ -321,7 +350,6 @@ void debug_print_line(byte* line, int size, byte color) {
 		int 10h
 		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
 	}
-	Mouse_Show();
 }
 
 void debug_print_byte(byte b, byte color) {
@@ -552,21 +580,6 @@ no_char:
 	}
 }
 
-void handle_keyboard() {
-	byte key;
-	Get_Key();
-	asm jnc no_key
-	asm mov key, al
-	if (key == 0xA2) { //g
-		if (NG_is_sent == 0) {
-			debug_print("NG", 2, Dmy);
-			send_str("NG", 2);
-			NG_is_sent = 1;
-		}
-	}
-	no_key:
-}
-
 void get_command() {
 	isNewCommand = 0;
 
@@ -739,14 +752,19 @@ void get_automat(byte c) {
 	}
 }
 
-byte get_click() {
+mouse_click_status get_click() {
 	int x, y;
+	int y_step = 28*2;
 	Mouse_Clc();
 	asm {
 		jnc no_clc;
 		mov x, ax
 		mov y, bx;
 	}
+	goto clc;
+no_clc:
+	return MCNone;
+clc:
 	if (x < 345 && y < 345) {
 		x = x / 43;
 		y = y / 43;
@@ -759,7 +777,12 @@ byte get_click() {
 		}
 		return MCBoard;
 	}
-no_clc:
+	if (x > 356 && x < 377) {	
+		if (y > 54 && y < 100) return MCNG;
+		if (y > 54+y_step && y < 100+y_step) return MCD2;
+		if (y > 54+y_step*2 && y < 100+y_step*2) return MCD3;
+		if (y > 54+y_step*3 && y < 100+y_step*3) return MCFF;
+	}
  	return MCNone;
 }
 
@@ -1136,7 +1159,7 @@ void step(chip color) {
 	if (color == White) damka = WDamka;
 	else damka = BDamka;
 
-	if (get_click() == MCBoard) {
+	if (mc == MCBoard) {
 		if (board[click_y][click_x] == None) {
 			byte step_status = do_step(click_x, click_y, color);
 			if (step_status > 0) {
@@ -1194,7 +1217,7 @@ void his_step() {
 				if (hishod_part < hishod_len) {
 					his_step();
 				} else {
-					debug_print_line("his_step error4", 15, 6);
+					debug_print("his_step error4", 15, 6);
 					error();
 				}
 			} else {
@@ -1211,16 +1234,16 @@ void his_step() {
 					}
 					Mouse_Clc_Restart();
 				} else {
-					debug_print_line("his_step error3", 15, 6);
+					debug_print("his_step error3", 15, 6);
 					error();
 				}
 			}
 		} else {
-			debug_print_line("his_step error2", 15, 6);
+			debug_print("his_step error2", 15, 6);
 			error();
 		}
 	} else {
-		debug_print_line("his_step error1", 15, 6);
+		debug_print("his_step error1", 15, 6);
 		error();
 	}
 }
@@ -1238,7 +1261,7 @@ void start_my_step() {
 		st = GGStepBlack;
 	}
 
-	if (get_click() == MCBoard) {
+	if (mc == MCBoard) {
 		if (board[click_y][click_x] == usual || board[click_y][click_x] == damka) {
 			if (can_step(click_x, click_y, MyColor)) {
 				apply_select(click_x, click_y, 1);
@@ -1257,7 +1280,6 @@ void start_his_step() {
 	isNewCommand = 0;
 
 	chip usual, damka;
-	global_game_status st;
 	if (HisColor == White) {
 		usual = White;
 		damka = WDamka;
@@ -1277,7 +1299,7 @@ void start_his_step() {
 			forbidden_direction = DNone;
 			his_step();
 		} else {
-			debug_print_line("start_his_step error2", 21, 6);
+			debug_print("start_his_step error2", 21, 6);
 			error();
 		}
 	} else {
@@ -1289,46 +1311,151 @@ void start_his_step() {
 	}
 }
 
-void start_step(chip color) {
+void start_step(chip color, chip player) {
+	if (player == HisColor && color != HisColor)
+		error();
 	if (color == MyColor) start_my_step();
 	else start_his_step();
 }
 
 void new_game() {
-	handle_keyboard();
-
-	if (NG_is_received == 0) {
-		if (isNewCommand == 1) {
-			isNewCommand = 0;
-			if (getst != GETERR) {
-				if (comm == COMNG) {
-					NG_is_received = 1;
-				} else if (comm == COMC0) {
-					ggs = GGCONNECT;
-				}
-			} else {
-				error();
-			}
-		}
-	}
-
 	if (NG_is_sent == 1 && NG_is_received == 1) {
 		if (MyColor == White) {MyColor = Black; HisColor = White;}
 		else {MyColor = White; HisColor = Black;}
-		ggs = GGBoardInit;
+		board_init();
 	}
 }
 
 void game() {
-	get_command();
+	mc = get_click();
+	if (mc != MCNone) {
+		switch (mc) {
+			case MCBoard: {
+				if (drawn_proposed_by_me || drawn_proposed_by_him) break;
+				switch (ggs) {
+					case GGStartStepWhite: start_step(White, MyColor); break;
+					case GGStartStepBlack: start_step(Black, MyColor); break;
+					case GGStepWhite: step(White); break;
+					case GGStepBlack: step(Black); break;
+					default: {}
+				}
+				break;
+			}
+			case MCNG: {
+				if (ggs == GGSTART) {
+					if (NG_is_sent == 0) {
+						debug_print("NG", 2, Dmy);
+						send_str("NG", 2);
+						NG_is_sent = 1;
+					}
+					new_game();
+				}
+				break;
+			}
+			case MCD2: {
+				if (ggs != GGSTART && ggs != GGNEW && ggs != GGCONNECT) {
+					if (drawn_proposed_by_him) {
+						debug_print("D2", 2, Dmy);
+						send_str("D2", 2);
+						debug_print("Draw confirmed", 14, 4);
+						ggs = GGNEW;
+					} else if (!drawn_proposed_by_me && ((ggs == GGStartStepWhite || ggs == GGStepWhite) && MyColor == White) ||
+							   ((ggs == GGStartStepBlack || ggs == GGStepBlack) && MyColor == Black)) {
+						debug_print("D2", 2, Dmy);
+						send_str("D2", 2);
+						debug_print("Drawn proposed", 14, 4);
+						drawn_proposed_by_me = 1;
+					}
+				}
+				break;
+			}
+			case MCD3: {
+				if (drawn_proposed_by_him) {
+					debug_print("D3", 2, Dmy);
+					send_str("D3", 2);
+					debug_print("Refused a draw", 14, 4);
+					drawn_proposed_by_him = 0;
+				}
+				break;
+			}
+			case MCFF: {
+				if (ggs != GGSTART && ggs != GGNEW && ggs != GGCONNECT && !drawn_proposed_by_him && !drawn_proposed_by_me) {
+					debug_print("FF", 2, Dmy);
+					send_str("FF", 2);
+					debug_print("You surrendered", 15, 4);
+					ggs = GGNEW;
+				}
+				break;
+			}
+			default: {}
+		}
+	}
 
-	switch (ggs) {
-		case GGSTART: new_game(); break;
-		case GGBoardInit: board_init(); break;
-		case GGStartStepWhite: start_step(White); break;
-		case GGStartStepBlack: start_step(Black); break;
-		case GGStepWhite: step(White); break;
-		case GGStepBlack: step(Black); break;
+	get_command();
+	if (!isNewCommand) return;
+	if (getst == GETERR) {
+		debug_print("GETERR", 6, 4);
+		error();
+	}
+	switch (comm) {
+		case COMX: {
+			if (drawn_proposed_by_me || drawn_proposed_by_him) {error(); break;}
+			switch (ggs) {
+				case GGStartStepWhite: start_step(White, HisColor); break;
+				case GGStartStepBlack: start_step(Black, HisColor); break;
+				case GGStepWhite: step(White); break;
+				case GGStepBlack: step(Black); break;
+				default: {}
+			}
+			break;
+		}
+		case COMNG: {
+			if (ggs == GGSTART) {
+				NG_is_received = 1;
+				new_game();	
+			} else error();
+			break;
+		}
+		case COMD0: {
+			if (ggs == GGSTART || ggs == GGNEW || ggs == GGCONNECT) ggs = GGCONNECT;
+			else ggs = GGNEW;
+			break;
+		}
+		case COMD2: {
+			if (drawn_proposed_by_me) {
+				debug_print("Draw confirmed", 14, 4);
+				ggs = GGNEW;
+			} else if (ggs != GGSTART && ggs != GGNEW && ggs != GGCONNECT && !drawn_proposed_by_him && !drawn_proposed_by_me) {
+				debug_print("Drawn proposed", 14, 4);
+				drawn_proposed_by_him = 1;
+			} else error();
+			break;
+		}
+		case COMD3: {
+			if (drawn_proposed_by_me) {
+				debug_print("Refused a draw", 14, 4);
+				drawn_proposed_by_me = 0;
+			} else error();
+			break;
+		}
+		case COMFF: {
+			if (ggs == GGSTART || ggs == GGNEW || ggs == GGCONNECT) {error(); break;}
+			debug_print("Opponent surrendered", 20, 4);
+			ggs = GGNEW;
+			break;
+		}
+		case COMEX: { 
+			ggs = GGCONNECT;
+			break;
+		}
+		case COMC0: { 
+			ggs = GGCONNECT;
+			break;
+		}
+		case COMCx: { 
+			ggs = GGCONNECT;
+			break;
+		}
 		default: {}
 	}
 }
