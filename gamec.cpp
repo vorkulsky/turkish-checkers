@@ -286,13 +286,10 @@ void apply_color(byte x, byte y) {
 
 void circle(int x1, int y1, int d, byte color) {
 	int r = d/2;
-	for (int y=0; y<=r; y++) {
-		for (int x=0; x<=r; x++) {
+	for (int y=0; y<d; y++) {
+		for (int x=0; x<d; x++) {
 			if ((x-r)*(x-r)+(y-r)*(y-r)<r*r) {
 				point(x1+x, y1+y, color);
-				point(x1+d-x, y1+y, color);
-				point(x1+x, y1+d-y, color);
-				point(x1+d-x, y1+d-y, color);
 			}
 		}
 	}
