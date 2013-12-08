@@ -447,8 +447,8 @@ void connect_send_automat() {
 		case CxSEND: {
 			STR[0] = 'C';
 			STR[1] = Cx + 48;
-			send_str("C0", 2);
-			debug_print("C0", 2, Dmy);
+/*			send_str("C0", 2);
+			debug_print("C0", 2, Dmy);*/
 			send_str(STR, 2);
 			debug_print(STR, 2, Dmy);
 			// Если через 18 не будет ответного Cx, идем на начало.
