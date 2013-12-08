@@ -60,7 +60,7 @@ void get_automat(byte c);
 void apply_color(byte x, byte y);
 void apply_select(byte x, byte y, byte select);
 mouse_click_status get_click();
-byte can_step(byte x, byte y, chip color); // color - ╤Ж╨▓╨╡╤В ╤Е╨╛╨┤╤П╤Й╨╡╨│╨╛.
+byte can_step(byte x, byte y, chip color); // color - цвет ходящего.
 byte can_eat(byte x, byte y, chip color);
 byte can_move(byte x, byte y, chip color);
 byte anyone_can_eat(chip color);
@@ -150,7 +150,7 @@ end_mainloop:
 
 void gameloop() {
 newgame:
-	debug_print("New game", 8, 8);
+	debug_print("Ожидание начала новой игры", 26, 8);
 	ggs = GGSTART;
 	timer18 = 0;
 	timer55 = 0;
@@ -175,7 +175,7 @@ end_gameloop:
 }
 
 void graph_ini() {
-	// ╨Я╨╡╤А╨╡╤Е╨╛╨┤ ╨▓ 10h ╨│╤А╨░╤Д╨╕╤З╨╡╤Б╨║╨╕╨╣ ╤А╨╡╨╢╨╕╨╝
+	// Переход в 10h графический режим
 	asm {
 		mov ah, 00h
 		mov al, 10h
@@ -187,7 +187,7 @@ void graph_ini() {
 }
 
 void graph_rst() {
-	// ╨Т╨╛╨╖╨▓╤А╨░╤Й╨╡╨╜╨╕╨╡ ╤Б╤В╨░╨╜╨┤╨░╤А╤В╨╜╨╛╨│╨╛ ╨▓╨╕╨┤╨╡╨╛-╤А╨╡╨╢╨╕╨╝╨░	
+	// Возвращение стандартного видео-режима	
 	asm {
 		mov ah, 00h
 		mov al, 3h
@@ -216,7 +216,7 @@ void paint_empty_board() {
 	byte color = 6;
 
 	int x1, x2, y1, y2;
-	// ╨а╨░╤Б╤З╨╡╤А╤З╨╕╨▓╨░╨╡╨╝ ╨┐╨╛ ╨▓╨╡╤А╤В╨╕╨║╨░╨╗╨╕
+	// Расчерчиваем по вертикали
 	y1 = 0;
 	y2 = 345;
 	x1 = 0;
@@ -227,7 +227,7 @@ void paint_empty_board() {
 		 x2 += 43;
 	}
 
-	// ╨а╨░╤Б╤З╨╡╤А╤З╨╕╨▓╨░╨╡╨╝ ╨┐╨╛ ╨│╨╛╤А╨╕╨╖╨╛╨╜╤В╨░╨╗╨╕
+	// Расчерчиваем по горизонтали
 	y1 = 0;
 	y2 = y1 + 1;
 	x1 = 0;
@@ -309,7 +309,7 @@ void debug_ini() {
 }
 
 void debug_print_line(byte* line, int size, byte color) {
-	// ╨Ь╨░╨║╤Б╨╕╨╝╨░╨╗╤М╨╜╨░╤П ╨┤╨╗╨╕╨╜╨░ ╤Б╤В╤А╨╛╨║╨╕ 29 ╤Б╨╕╨╝╨▓╨╛╨╗╨╛╨▓
+	// Максимальная длина строки 29 символов
 	const byte left = 50;
 	const byte right = 79;
 	const byte up = 0;
@@ -319,7 +319,7 @@ void debug_print_line(byte* line, int size, byte color) {
 	Mouse_Hide();
 	asm {
 		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
-	// ╨Я╤А╨╛╨║╤А╤Г╤В╨║╨░ ╨╜╨░ ╨╛╨┤╨╜╤Г ╤Б╤В╤А╨╛╨║╤Г ╨▓╨▓╨╡╤А╤Е ╨┐╨╡╤А╨╡╨┤ ╨┐╨╡╤З╨░╤В╤М╤О ╨╛╤З╨╡╤А╨╡╨┤╨╜╨╛╨╣
+	// Прокрутка на одну строку вверх перед печатью очередной
 		mov ah, 6
 		mov al, 1
 		mov bx, 0000h
@@ -358,7 +358,7 @@ void debug_print_byte(byte b, byte color) {
 }
 
 void debug_print(byte* str, int size, byte color) {
-	// 29 - ╨╝╨░╨║╤Б╨╕╨╝╨░╨╗╤М╨╜╨╛╨╡ ╨║╨╗╨╕╤З╨╡╤Б╤В╨▓╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨╛╨▓, ╨┐╨╡╤З╨░╤В╨░╨╡╨╝╨╛╨╡ ╨╜╨░ ╨╛╨┤╨╜╨╛╨╣ ╤Б╤В╤А╨╛╨║╨╡
+	// 29 - максимальное кличество символов, печатаемое на одной строке
 	while (size > 0) {
 		int part = size <= 29 ? size : 29;
 		debug_print_line(str, part, color);
@@ -406,10 +406,10 @@ byte random_gesture() {
 }
 
 void connect() {
-	// ╨Ю╤В╨┐╤А╨░╨▓╨║╨░
+	// Отправка
 	connect_send_automat();
 
-	// ╨Я╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡
+	// Получение
 	byte c;
 	Get_Chr();
 	asm jc no_char
@@ -430,7 +430,7 @@ void connect_send_automat() {
 		case CSSTART: {
 			timer18 = 0;
 			css = C0PING;
-			debug_print("Connect", 7, 8);
+			debug_print("Установка соединения", 20, 8);
 			send_str("C0", 2);
 			debug_print("C0", 2, Dmy);
 			break;
@@ -451,7 +451,7 @@ void connect_send_automat() {
 			debug_print("C0", 2, Dmy);
 			send_str(STR, 2);
 			debug_print(STR, 2, Dmy);
-			// ╨Х╤Б╨╗╨╕ ╤З╨╡╤А╨╡╨╖ 18 ╨╜╨╡ ╨▒╤Г╨┤╨╡╤В ╨╛╤В╨▓╨╡╤В╨╜╨╛╨│╨╛ Cx, ╨╕╨┤╨╡╨╝ ╨╜╨░ ╨╜╨░╤З╨░╨╗╨╛.
+			// Если через 18 не будет ответного Cx, идем на начало.
 			timer18 = 0;
 			css = C0PING;
 			break;
@@ -544,7 +544,7 @@ void rockPaperScissors(byte c) {
 		MyColor = None;
 	} else {
 		byte cnb = Cx * 10 + HisCx;
-		// ╨Я╨╡╤А╨▓╨░╤П ╤Ж╨╕╤Д╤А╨░ - ╤П. ╨г ╨┐╨╛╨▒╨╡╨┤╨╕╤В╨╡╨╗╤П ╤З╨╡╤А╨╜╤Л╨╣.
+		// Первая цифра - я. У победителя черный.
 		if (cnb == 12 || cnb == 23 || cnb == 31) {
 			MyColor = Black;
 		} else {
@@ -560,6 +560,7 @@ void sendSS() {
 		timer18 = 0;
 	}
 	if (timer55 >= 55) {
+		debug_print("Потеряна связь с противником", 28, 4);
 		ggs = GGCONNECT;
 	}
 }
@@ -819,7 +820,7 @@ byte can_eat(byte x, byte y, chip color) {
 }
 
 byte damka_can_eat(byte x, byte y, chip color) {
-	chip usual, damka; // ╨ж╨▓╨╡╤В╨░ ╨┐╤А╨╛╤В╨╕╨▓╨╜╨╕╨║╨░
+	chip usual, damka; // Цвета противника
 	if (color == White) {
 		usual = Black;
 		damka = BDamka;
@@ -904,7 +905,7 @@ byte can_move(byte x, byte y, chip color) {
 byte do_step(byte x, byte y, chip color) {
 	if (can_eat(selected_x, selected_y, color)) {
 		if (do_eat(x, y, color))
-			return 2; // 2 - ╤Е╨╛╨┤ ╨╖╨░╨║╨╛╨╜╤З╨╕╨╗╤Б╤П ╤А╤Г╨▒╨║╨╛╨╣.
+			return 2; // 2 - ход закончился рубкой.
 		return 0;
 	} 
 	return do_move(x, y, color);
@@ -918,7 +919,7 @@ byte do_eat(byte x, byte y, chip color) {
 }
 
 byte damka_do_eat(byte x, byte y, chip color) {
-	chip usual, damka; // ╨ж╨▓╨╡╤В╨░ ╨┐╤А╨╛╤В╨╕╨▓╨╜╨╕╨║╨░
+	chip usual, damka; // Цвета противника
 	if (color == White) {
 		usual = Black;
 		damka = BDamka;
@@ -1108,15 +1109,15 @@ byte game_over() {
 			}
 		}
 	if (count_black + count_bdamka == 0 || !can_move_black || (!count_wdamka && !count_bdamka && count_black == 1 && count_white > 1)) {
-		debug_print("White win!", 10, 4);
+		debug_print("Победа белых!", 13, 4);
 		return 1;
 	}
 	if (count_white + count_wdamka == 0 || !can_move_white || (!count_wdamka && !count_bdamka && count_white == 1 && count_black > 1)) {
-		debug_print("Black win!", 10, 4);
+		debug_print("Победа черных!", 14, 4);
 		return 1;
 	}
 	if (!count_white && !count_black && count_wdamka == 1 && count_bdamka == 1) {
-		debug_print("Drawn game!", 11, 4);
+		debug_print("Ничья!", 6, 4);
 		return 1;
 	}
 	return 0;
@@ -1169,7 +1170,7 @@ void step(chip color) {
 				board[selected_y][selected_x] = None;
 				apply_color(selected_x, selected_y);
 				board[click_y][click_x] = old_chip;
-				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - ╨▓╨╛╨╖╨╝╨╛╨╢╨╡╨╜ ╨┐╨╛╨▓╤В╨╛╤А╨╜╤Л╨╣ ╤Е╨╛╨┤, ╤В.╨║. ╨┐╤А╨╡╨┤╤Л╨┤╤Г╤Й╨╕╨╣ ╨▒╤Л╨╗ ╤А╤Г╨▒╨║╨╛╨╣.
+				if (step_status == 2 && can_eat(click_x, click_y, color)) { // 2 - возможен повторный ход, т.к. предыдущий был рубкой.
 					apply_color(click_x, click_y);
 					apply_select(click_x, click_y, 1);
 					if ((color == White && click_y == 7) || (color == Black && click_y == 0)) futureDamka = 1;
@@ -1210,7 +1211,7 @@ void his_step() {
 			board[selected_y][selected_x] = None;
 			apply_color(selected_x, selected_y);
 			board[click_y][click_x] = old_chip;
-			if (step_status == 2 && can_eat(click_x, click_y, HisColor)) { // 2 - ╨▓╨╛╨╖╨╝╨╛╨╢╨╡╨╜ ╨┐╨╛╨▓╤В╨╛╤А╨╜╤Л╨╣ ╤Е╨╛╨┤, ╤В.╨║. ╨┐╤А╨╡╨┤╤Л╨┤╤Г╤Й╨╕╨╣ ╨▒╤Л╨╗ ╤А╤Г╨▒╨║╨╛╨╣.
+			if (step_status == 2 && can_eat(click_x, click_y, HisColor)) { // 2 - возможен повторный ход, т.к. предыдущий был рубкой.
 				apply_color(click_x, click_y);
 				apply_select(click_x, click_y, 1);
 				if ((HisColor == White && click_y == 7) || (HisColor == Black && click_y == 0)) futureDamka = 1;
@@ -1357,13 +1358,13 @@ void game() {
 					if (drawn_proposed_by_him) {
 						debug_print("D2", 2, Dmy);
 						send_str("D2", 2);
-						debug_print("Draw confirmed", 14, 4);
+						debug_print("Я подтверждаю ничью", 19, 4);
 						ggs = GGNEW;
 					} else if (!drawn_proposed_by_me && ((ggs == GGStartStepWhite || ggs == GGStepWhite) && MyColor == White) ||
 							   ((ggs == GGStartStepBlack || ggs == GGStepBlack) && MyColor == Black)) {
 						debug_print("D2", 2, Dmy);
 						send_str("D2", 2);
-						debug_print("Drawn proposed", 14, 4);
+						debug_print("Я предлагаю ничью", 17, 4);
 						drawn_proposed_by_me = 1;
 					}
 				}
@@ -1373,7 +1374,7 @@ void game() {
 				if (drawn_proposed_by_him) {
 					debug_print("D3", 2, Dmy);
 					send_str("D3", 2);
-					debug_print("Refused a draw", 14, 4);
+					debug_print("Я не согласен на ничью", 22, 4);
 					drawn_proposed_by_him = 0;
 				}
 				break;
@@ -1382,7 +1383,7 @@ void game() {
 				if (ggs != GGSTART && ggs != GGNEW && ggs != GGCONNECT && !drawn_proposed_by_him && !drawn_proposed_by_me) {
 					debug_print("FF", 2, Dmy);
 					send_str("FF", 2);
-					debug_print("You surrendered", 15, 4);
+					debug_print("Я сдаюсь", 8, 4);
 					ggs = GGNEW;
 				}
 				break;
@@ -1423,28 +1424,29 @@ void game() {
 		}
 		case COMD2: {
 			if (drawn_proposed_by_me) {
-				debug_print("Draw confirmed", 14, 4);
+				debug_print("Противник согласился на ничью", 29, 4);
 				ggs = GGNEW;
 			} else if (ggs != GGSTART && ggs != GGNEW && ggs != GGCONNECT && !drawn_proposed_by_him && !drawn_proposed_by_me) {
-				debug_print("Drawn proposed", 14, 4);
+				debug_print("Противник предложил ничью", 25, 4);
 				drawn_proposed_by_him = 1;
 			} else error();
 			break;
 		}
 		case COMD3: {
 			if (drawn_proposed_by_me) {
-				debug_print("Refused a draw", 14, 4);
+				debug_print("Противник отклонил ничью", 24, 4);
 				drawn_proposed_by_me = 0;
 			} else error();
 			break;
 		}
 		case COMFF: {
 			if (ggs == GGSTART || ggs == GGNEW || ggs == GGCONNECT) {error(); break;}
-			debug_print("Opponent surrendered", 20, 4);
+			debug_print("Противник сдался", 16, 4);
 			ggs = GGNEW;
 			break;
 		}
-		case COMEX: { 
+		case COMEX: {
+			debug_print("Противник ушел", 14, 4);
 			ggs = GGCONNECT;
 			break;
 		}
