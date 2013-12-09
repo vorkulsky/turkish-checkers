@@ -143,6 +143,7 @@ void main() {
 void mainloop() {
 connect:
 	MyColor = None;
+	timer18 = 0;
 	while (MyColor == None) {
 		Key_Is_Esc();
 		asm jc end_mainloop
@@ -432,9 +433,6 @@ byte random_gesture() {
 }
 
 void connect() {
-	// Отправка
-	connect_send_automat();
-
 	// Получение
 	byte c;
 	Get_Chr();
@@ -445,6 +443,9 @@ void connect() {
 	connect_get_automat(c);
 
 no_char:
+	// Отправка
+	connect_send_automat();
+	
 	if (timer55 > 18 && cgs != CGSTART) {
 		cgs = CGSTART;
 		css = CSSTART;
@@ -455,15 +456,19 @@ no_char:
 void connect_send_automat() {
 	switch (css) {
 		case CSSTART: {
-			timer18 = 0;
-			css = C0PING;
-			debug_print("Установка соединения", 20, 8);
-			send_str("C0", 2);
-			debug_print("C0", 2, Dmy);
+			if (timer18 > 18) {
+				//debug_print('T', 1, 4);
+				timer18 = 0;
+				css = C0PING;
+				debug_print("Установка соединения", 20, 8);
+				send_str("C0", 2);
+				debug_print("C0", 2, Dmy);
+			}
 			break;
 		}
 		case C0PING: {
-			if (timer18 >= 18) {
+			if (timer18 > 18) {
+				//debug_print('T', 1, 4);
 				timer18 = 0;
 				cgs = CGSTART;
 				send_str("C0", 2);
@@ -474,8 +479,8 @@ void connect_send_automat() {
 		case CxSEND: {
 			STR[0] = 'C';
 			STR[1] = Cx + 48;
-			send_str("C0", 2);
-			debug_print("C0", 2, Dmy);
+/*			send_str("C0", 2);
+			debug_print("C0", 2, Dmy);*/
 			send_str(STR, 2);
 			debug_print(STR, 2, Dmy);
 			// Если через 18 не будет ответного Cx, идем на начало.
