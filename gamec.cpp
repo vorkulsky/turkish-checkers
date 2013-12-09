@@ -516,7 +516,6 @@ void connect_get_automat(byte c) {
 				cgs = GetC0;
 				css = CxSEND;
 				debug_print("C0", 2, Dhis);
-				whetherC0 = 1;
 				Cx = random_gesture();
 			} else {
 				cgs = CGSTART;
