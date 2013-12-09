@@ -39,6 +39,7 @@ void paint_buttons();
 void write_line(byte* line, int size, byte writex, byte writey, byte color);
 void debug_ini();
 void debug_print(byte* str, int size, byte color);
+void debug_print_line(byte* str, int size, byte color);
 void debug_print_byte(byte b, byte color);
 void mainloop();
 void gameloop();
@@ -119,22 +120,23 @@ mouse_click_status mc;
 byte drawn_proposed_by_me;
 byte drawn_proposed_by_him;
 byte argslen;
+byte whetherC0;
 
 void main() {
 	Key_Ini();
-	graph_ini();
-	Mouse_Ini();
+	graph_ini();	
 	paint_empty_board();
 	paint_buttons();
 	debug_ini();
 	read_args();
-	Ser_Ini();
+	Mouse_Ini();
 	timer_ini();
+	Ser_Ini();
 
 	mainloop();
 
-	Timer_Rst();
 	Ser_Rst();
+	Timer_Rst();
 	Mouse_Rst();
 	graph_rst();
 	Key_Rst();
@@ -144,11 +146,13 @@ void mainloop() {
 connect:
 	MyColor = None;
 	timer18 = 0;
+	whetherC0 = 0;
 	while (MyColor == None) {
 		Key_Is_Esc();
 		asm jc end_mainloop
 		connect();
 	}
+	
 	gameloop();
 	if (ggs == GGCONNECT) goto connect;
 end_mainloop:
@@ -342,7 +346,7 @@ void debug_print_line(byte* line, int size, byte color) {
 	const byte writey = 24;
 	Mouse_Hide();
 	asm {
-		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
+		pusha
 	// Прокрутка на одну строку вверх перед печатью очередной
 		mov ah, 6
 		mov al, 1
@@ -352,7 +356,7 @@ void debug_print_line(byte* line, int size, byte color) {
 		mov dh, down
 		mov dl, right
 		int 10h
-		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
+		popa
 	}
 	write_line(line, size, writex, writey, color);
 	Mouse_Show();
@@ -360,7 +364,7 @@ void debug_print_line(byte* line, int size, byte color) {
 
 void write_line(byte* line, int size, byte writex, byte writey, byte color) {
 	asm {
-		push ax; push bx; push cx; push dx; push sp; push bp; push si; push di; push es
+		pusha
 		mov ah, 13h
 		mov al, 0
 		mov bh, Page
@@ -372,7 +376,7 @@ void write_line(byte* line, int size, byte writex, byte writey, byte color) {
 		pop es
 		mov bp, line
 		int 10h
-		pop es; pop di; pop si; pop bp; pop sp; pop dx; pop cx; pop bx; pop ax
+		popa
 	}
 }
 
@@ -449,6 +453,7 @@ no_char:
 	if (timer55 > 18 && cgs != CGSTART) {
 		cgs = CGSTART;
 		css = CSSTART;
+		whetherC0 = 0;
 		timer55 = 0;
 	}
 }
@@ -463,6 +468,7 @@ void connect_send_automat() {
 				debug_print("Установка соединения", 20, 8);
 				send_str("C0", 2);
 				debug_print("C0", 2, Dmy);
+				whetherC0 = 1;
 			}
 			break;
 		}
@@ -477,14 +483,16 @@ void connect_send_automat() {
 			break;
 		}
 		case CxSEND: {
-			STR[0] = 'C';
-			STR[1] = Cx + 48;
-/*			send_str("C0", 2);
-			debug_print("C0", 2, Dmy);*/
-			send_str(STR, 2);
-			debug_print(STR, 2, Dmy);
-			// Если через 18 не будет ответного Cx, идем на начало.
-			timer18 = 0;
+			if (whetherC0) {
+				STR[0] = 'C';
+				STR[1] = Cx + 48;
+/*				send_str("C0", 2);
+				debug_print("C0", 2, Dmy);*/
+				send_str(STR, 2);
+				debug_print(STR, 2, Dmy);
+				// Если через 18 не будет ответного Cx, идем на начало.
+				timer18 = 0;
+			}
 			css = C0PING;
 			break;
 		}
@@ -499,6 +507,7 @@ void connect_get_automat(byte c) {
 				cgs = GetC;
 			} else {
 				css = CSSTART;
+				whetherC0 = 0;
 			}
 			break;
 		}
@@ -507,10 +516,12 @@ void connect_get_automat(byte c) {
 				cgs = GetC0;
 				css = CxSEND;
 				debug_print("C0", 2, Dhis);
+				whetherC0 = 1;
 				Cx = random_gesture();
 			} else {
 				cgs = CGSTART;
 				css = CSSTART;
+				whetherC0 = 0;
 			}
 			break;
 		}
@@ -520,6 +531,7 @@ void connect_get_automat(byte c) {
 			} else {
 				cgs = CGSTART;
 				css = CSSTART;
+				whetherC0 = 0;
 			}
 			break;
 		}
@@ -533,6 +545,7 @@ void connect_get_automat(byte c) {
 				} else {
 					cgs = CGSTART;
 					css = CSSTART;
+					whetherC0 = 0;
 				}
 			}
 			break; 
@@ -543,6 +556,7 @@ void connect_get_automat(byte c) {
 			} else {
 				cgs = CGSTART;
 				css = CSSTART;
+				whetherC0 = 0;
 			}
 			break;
 		}
@@ -556,6 +570,7 @@ void connect_get_automat(byte c) {
 				} else {
 					cgs = CGSTART;
 					css = CSSTART;
+					whetherC0 = 0;
 				}
 			}
 			break; 
@@ -573,6 +588,7 @@ void rockPaperScissors(byte c) {
 	if (Cx == HisCx) {
 		cgs = CGSTART;
 		css = CSSTART;
+		whetherC0 = 0;
 		MyColor = None;
 	} else {
 		byte cnb = Cx * 10 + HisCx;
