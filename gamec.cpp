@@ -1462,7 +1462,7 @@ void game() {
 			if (ggs == GGSTART) {
 				NG_is_received = 1;
 				new_game();	
-			} else error();
+			} else ggs = GGNEW;
 			break;
 		}
 		case COMD0: {
