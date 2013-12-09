@@ -1070,14 +1070,14 @@ void usual_eat(byte x, byte y) {
 
 byte usual_do_eat(byte x, byte y, chip color) {
 	if (color == White) {
-		if (y > selected_y && y == selected_y+2 && (board[y-1][x] == Black || board[y-1][x] == BDamka)) {usual_eat(x, y-1); return 1;}
-		if (x > selected_x && x == selected_x+2 && (board[y][x-1] == Black || board[y][x-1] == BDamka)) {usual_eat(x-1, y); return 1;}
-		if (x < selected_x && x+2 == selected_x && (board[y][x+1] == Black || board[y][x+1] == BDamka)) {usual_eat(x+1, y); return 1;}
+		if (x == selected_x && y > selected_y && y == selected_y+2 && (board[y-1][x] == Black || board[y-1][x] == BDamka)) {usual_eat(x, y-1); return 1;}
+		if (y == selected_y && x > selected_x && x == selected_x+2 && (board[y][x-1] == Black || board[y][x-1] == BDamka)) {usual_eat(x-1, y); return 1;}
+		if (y == selected_y && x < selected_x && x+2 == selected_x && (board[y][x+1] == Black || board[y][x+1] == BDamka)) {usual_eat(x+1, y); return 1;}
 		return 0;
 	} else {
-		if (y < selected_y && y+2 == selected_y && (board[y+1][x] == White || board[y+1][x] == WDamka)) {usual_eat(x, y+1); return 1;}
-		if (x > selected_x && x == selected_x+2 && (board[y][x-1] == White || board[y][x-1] == WDamka)) {usual_eat(x-1, y); return 1;}
-		if (x < selected_x && x+2 == selected_x && (board[y][x+1] == White || board[y][x+1] == WDamka)) {usual_eat(x+1, y); return 1;}
+		if (x == selected_x && y < selected_y && y+2 == selected_y && (board[y+1][x] == White || board[y+1][x] == WDamka)) {usual_eat(x, y+1); return 1;}
+		if (y == selected_y && x > selected_x && x == selected_x+2 && (board[y][x-1] == White || board[y][x-1] == WDamka)) {usual_eat(x-1, y); return 1;}
+		if (y == selected_y && x < selected_x && x+2 == selected_x && (board[y][x+1] == White || board[y][x+1] == WDamka)) {usual_eat(x+1, y); return 1;}
 		return 0;
 	}
 }
