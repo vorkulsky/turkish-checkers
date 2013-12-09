@@ -84,6 +84,7 @@ void new_game();
 void his_step();
 void circle(int x1, int y1, int d, byte color);
 void point(int x, int y, byte color);
+void read_args();
 
 byte Page;
 byte STR[64];
@@ -117,6 +118,7 @@ direction forbidden_direction;
 mouse_click_status mc;
 byte drawn_proposed_by_me;
 byte drawn_proposed_by_him;
+byte argslen;
 
 void main() {
 	Key_Ini();
@@ -125,6 +127,7 @@ void main() {
 	paint_empty_board();
 	paint_buttons();
 	debug_ini();
+	read_args();
 	Ser_Ini();
 	timer_ini();
 
@@ -204,6 +207,14 @@ void rectangle(int x1, int x2, int y1, int y2, byte color) {
 		}
 	}
 }
+
+#undef byte
+void read_args() {
+	asm mov al, byte ptr cs:[80h]
+	asm mov argslen, al
+	if (argslen) argslen--;
+}
+#define byte unsigned char
 
 void point(int x, int y, byte color) {
 	asm {
@@ -389,6 +400,9 @@ send_via_com:
 		Out_Chr();
 		asm jc send_via_com
 		str++;
+		asm mov cx, 7400
+	l:
+		asm loop l
 	}
 }
 
@@ -426,6 +440,7 @@ void connect() {
 	Get_Chr();
 	asm jc no_char
 	asm mov c, al
+	if (argslen) debug_print(&c, 1, 8);
 	timer55 = 0;
 	connect_get_automat(c);
 
@@ -567,7 +582,7 @@ void rockPaperScissors(byte c) {
 
 void sendSS() {
 	if (timer18 >= 18) {
-		//debug_print("SS", 2, Dmy);
+		if (argslen >= 2) debug_print("SS", 2, Dmy);
 		send_str("SS", 2);
 		timer18 = 0;
 	}
@@ -601,7 +616,7 @@ void get_command() {
 		Get_Chr();
 		asm jc no_char
 		asm mov c, al
-		//debug_print(&c, 1, 8);
+		if (argslen == 2 || (argslen == 1 && c != 'S')) debug_print(&c, 1, 8);
 		timer55 = 0;
 		get_automat(c);
 		if (getst == GETSTART || getst == GETERR) {
@@ -633,7 +648,7 @@ void get_automat(byte c) {
 		}
 		case GETS: {
 			if (c == 'S') {
-				//debug_print("SS", 2, Dhis);
+				if (argslen >= 2) debug_print("SS", 2, Dhis);
 				getst = GETNEXT;
 			} else {
 				getst = GETERR;
