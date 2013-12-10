@@ -23,7 +23,7 @@
 	extern "C" Timer_Rst();
 
 enum chip {None, White, Black, WDamka, BDamka};
-enum connect_send_status {CSSTART, C0PING, CxSEND};
+enum connect_send_status {CSSTART, C0PING};
 enum connect_get_status {CGSTART, GetC, GetC0, GetC0C, GetC0C0, GetC0C0C, CGEXIT};
 enum global_game_status {GGSTART, GGNEW, GGCONNECT, GGStartStepWhite, GGStartStepBlack, GGStepWhite, GGStepBlack};
 enum get_status {GETSTART, GETS, GETERR, GETC, GETNEXT, GETN, GETD, GETF, GETE, GETLM, GETX, GETXX, GETLEN};
@@ -86,6 +86,7 @@ void his_step();
 void circle(int x1, int y1, int d, byte color);
 void point(int x, int y, byte color);
 void read_args();
+byte cx_send();
 
 byte Page;
 byte STR[64];
@@ -465,6 +466,23 @@ no_char:
 	}
 }
 
+byte cx_send() {
+	if (whetherC0) {
+		STR[0] = 'C';
+		STR[1] = Cx + 48;
+/*		send_str("C0", 2);
+		debug_print("C0", 2, Dmy);*/
+		send_str(STR, 2);
+		debug_print(STR, 2, Dmy);
+		// Если через 18 не будет ответного Cx, идем на начало.
+		timer18 = 0;
+		css = C0PING;
+		return 1;
+	}
+	css = C0PING;
+	return 0;
+}
+
 void connect_send_automat() {
 	switch (css) {
 		case CSSTART: {
@@ -486,21 +504,8 @@ void connect_send_automat() {
 				cgs = CGSTART;
 				send_str("C0", 2);
 				debug_print("C0", 2, Dmy);
+				whetherC0 = 1;
 			}
-			break;
-		}
-		case CxSEND: {
-			if (whetherC0) {
-				STR[0] = 'C';
-				STR[1] = Cx + 48;
-/*				send_str("C0", 2);
-				debug_print("C0", 2, Dmy);*/
-				send_str(STR, 2);
-				debug_print(STR, 2, Dmy);
-				// Если через 18 не будет ответного Cx, идем на начало.
-				timer18 = 0;
-			}
-			css = C0PING;
 			break;
 		}
 		default: {}
@@ -521,9 +526,13 @@ void connect_get_automat(byte c) {
 		case GetC: {
 			if (c == '0') {
 				cgs = GetC0;
-				css = CxSEND;
 				debug_print("C0", 2, Dhis);
 				Cx = random_gesture();
+				if (!cx_send()) {
+					cgs = CGSTART;
+					css = CSSTART;
+					whetherC0 = 0;
+				}
 			} else {
 				cgs = CGSTART;
 				css = CSSTART;
@@ -1470,7 +1479,7 @@ void game() {
 				new_game();	
 			} else {
 				if (NG_is_sent == 1 && NG_is_received == 1) {
-					
+					NG_during_game = 1;
 					ggs = GGNEW;
 				} else error();
 			}
