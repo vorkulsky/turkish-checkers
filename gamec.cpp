@@ -121,6 +121,7 @@ byte drawn_proposed_by_me;
 byte drawn_proposed_by_him;
 byte argslen;
 byte whetherC0;
+byte NG_during_game;
 
 void main() {
 	Key_Ini();
@@ -159,13 +160,19 @@ end_mainloop:
 }
 
 void gameloop() {
+	byte NG_during_game = 0;
 newgame:
 	debug_print("Ожидание начала новой игры", 26, 8);
 	ggs = GGSTART;
 	timer18 = 0;
 	timer55 = 0;
 	NG_is_sent = 0;
-	NG_is_received = 0;
+	if (NG_during_game) {
+		NG_is_received = 1;
+		NG_during_game = 0;
+	} else {
+		NG_is_received = 0;
+	}
 	getst = GETSTART;
 	isNewCommand = 0;
 	drawn_proposed_by_me = 0;
@@ -1461,7 +1468,12 @@ void game() {
 			if (ggs == GGSTART) {
 				NG_is_received = 1;
 				new_game();	
-			} else ggs = GGNEW;
+			} else {
+				if (NG_is_sent == 1 && NG_is_received == 1) {
+					
+					ggs = GGNEW;
+				} else error();
+			}
 			break;
 		}
 		case COMD0: {
